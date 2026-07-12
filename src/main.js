@@ -70,16 +70,22 @@ const camera = new THREE.PerspectiveCamera(
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0xd7e8f2, 1.15));
 
+// The sun is static, with a shadow frustum wide enough to hold the whole
+// visible foreground (run, flank trees, rocks). A frustum that tracked the
+// rider would make tree shadows pop in and out as the box moved with the
+// scroll. Sun sits low and to the side so terrain facets catch shading.
 const sun = new THREE.DirectionalLight(0xffffff, 1.7);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -30;
-sun.shadow.camera.right = 30;
-sun.shadow.camera.top = 30;
-sun.shadow.camera.bottom = -30;
-sun.shadow.camera.near = 10;
-sun.shadow.camera.far = 220;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.camera.left = -120;
+sun.shadow.camera.right = 120;
+sun.shadow.camera.top = 120;
+sun.shadow.camera.bottom = -120;
+sun.shadow.camera.near = 40;
+sun.shadow.camera.far = 450;
 sun.shadow.bias = -0.0005;
+sun.target.position.set(0, hillY(-100), -100);
+sun.position.set(135, hillY(-100) + 165, -205);
 scene.add(sun);
 scene.add(sun.target);
 
@@ -263,11 +269,6 @@ function renderFrame(p, dt) {
     LOOK_START.y + (LOOK_END.y - LOOK_START.y) * dolly,
     LOOK_START.z + (LOOK_END.z - LOOK_START.z) * dolly,
   );
-
-  // Keep the shadow frustum tight on the rider wherever he is on the run.
-  // Sun sits lower and to the side so terrain facets catch visible shading.
-  sun.position.set(s.x + 45, s.y + 55, s.z - 35);
-  sun.target.position.set(s.x, s.y, s.z);
 
   snowfall.update(elapsed);
   birds.update(elapsed);
