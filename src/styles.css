@@ -1,0 +1,298 @@
+:root {
+  --snow-white: #f4f9fc;
+  --ice-pale: #dcecf5;
+  --ice-blue: #7fb5d6;
+  --ice-deep: #2e6f9e;
+  --ink: #1d3547;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  /* Instant response; smoothing is done in the render loop instead so the
+     scene eases identically for wheel, keyboard, and scrollbar input. */
+  scroll-behavior: auto;
+}
+
+body {
+  background: var(--snow-white);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The scroll timeline: 600vh of runway for the descent. */
+#scroll-space {
+  height: 600vh;
+}
+
+/* --- Content panels ------------------------------------------------------ */
+/* Opacity, slide (via --slide), and pointer-events are driven per frame by
+   sections.js from the scroll timeline, so panels stay in perfect sync with
+   the rider. Flat colors and thin borders only. */
+
+.panel {
+  position: fixed;
+  opacity: 0;
+  visibility: hidden;
+  max-width: 400px;
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: 24px 28px;
+  background: rgba(244, 249, 252, 0.92);
+  border: 1px solid var(--ice-blue);
+}
+
+.panel.intro {
+  left: 50%;
+  top: 10vh;
+  text-align: center;
+  transform: translate(-50%, var(--slide, 0px));
+}
+
+.panel.side {
+  top: 50%;
+  transform: translateY(calc(-50% + var(--slide, 0px)));
+}
+
+.panel.left {
+  left: 5vw;
+}
+
+.panel.right {
+  right: 5vw;
+}
+
+.kicker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ice-deep);
+  margin-bottom: 10px;
+}
+
+.panel h1 {
+  font-size: 2.6rem;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.panel h2 {
+  font-size: 1.4rem;
+  margin-bottom: 14px;
+}
+
+.panel .tagline {
+  font-size: 1.05rem;
+  color: var(--ice-deep);
+}
+
+.panel .hint {
+  margin-top: 22px;
+  font-size: 0.85rem;
+  color: var(--ice-deep);
+}
+
+.chev {
+  display: inline-block;
+  animation: bob 1.6s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+.panel article {
+  padding: 12px 0;
+}
+
+.panel article + article {
+  border-top: 1px solid var(--ice-pale);
+}
+
+.panel h3 {
+  font-size: 1rem;
+  margin-bottom: 2px;
+}
+
+.panel .meta {
+  font-size: 0.8rem;
+  color: var(--ice-deep);
+  margin-bottom: 6px;
+}
+
+.tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--ice-blue);
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ice-deep);
+  vertical-align: 2px;
+}
+
+.panel article p {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.panel a {
+  color: var(--ice-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.panel a:hover {
+  color: var(--ink);
+}
+
+/* Denser rhythm for list-heavy panels (projects). */
+.panel.compact article {
+  padding: 8px 0;
+}
+
+.panel.compact article p {
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.panel.compact h2 {
+  margin-bottom: 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips span {
+  border: 1px solid var(--ice-blue);
+  background: var(--snow-white);
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  border-radius: 3px;
+}
+
+@media (max-width: 700px) {
+  .panel {
+    max-width: none;
+    padding: 18px 20px;
+  }
+
+  .panel.side {
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 18px;
+    max-height: 58vh;
+    transform: translateY(var(--slide, 0px));
+  }
+
+  .panel.intro {
+    width: calc(100% - 32px);
+  }
+
+  .panel h1 {
+    font-size: 2rem;
+  }
+}
+
+/* --- Contact bib ---------------------------------------------------------- */
+/* Position, rotation, and scale are set per frame from the projected jacket
+   anchors, so it rides the rider's idle sway like a printed race bib. */
+
+#bib {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 256px;
+  padding: 18px 20px;
+  background: var(--snow-white);
+  border: 2px solid var(--ice-deep);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.bib-name {
+  font-size: 1.22rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+#bib nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px 16px;
+}
+
+#bib a {
+  color: var(--ice-deep);
+  font-size: 0.88rem;
+  white-space: nowrap;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+#bib a:hover {
+  color: var(--ink);
+}
+
+/* --- Static fallback ------------------------------------------------------ */
+/* Applied when the user prefers reduced motion or WebGL is unavailable:
+   the timeline is abandoned and the site becomes a plainly scrolling page.
+   The canvas (if present) holds a single rendered vista behind the content. */
+
+body.static-mode #scroll-space {
+  display: none;
+}
+
+body.static-mode #sections {
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 42vh 16px 16px;
+}
+
+body.static-mode .panel {
+  position: static;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  max-width: none;
+  margin: 0 0 22px;
+}
+
+body.static-mode #bib {
+  position: static;
+  display: block;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  margin: 0 auto 48px;
+}

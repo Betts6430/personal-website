@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Avery Bettesworth | Computer Engineering</title>
+    <meta
+      name="description"
+      content="Personal site of Avery Bettesworth, Computer Engineering student at the University of Alberta. Scroll to ride the mountain: education, skills, and projects on the way down."
+    />
+    <meta name="theme-color" content="#dcecf5" />
+    <meta property="og:title" content="Avery Bettesworth | Computer Engineering" />
+    <meta
+      property="og:description"
+      content="A portfolio you scroll down a mountain. Education, skills, and projects, carved into the snow."
+    />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23dcecf5'/%3E%3Cpath d='M3 27L13 7l6 11 4-6 6 15z' fill='%232e6f9e'/%3E%3Cpath d='M13 7l3 6-3 3-3-4z' fill='%23f4f9fc'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <!-- Fixed full-viewport 3D scene; the page itself never visually scrolls. -->
+    <canvas id="scene"></canvas>
+
+    <!-- Invisible spacer that gives the page real scrollable height.
+         Native scrollbar, momentum, keyboard, and touch all keep working;
+         scroll position becomes the 0..1 timeline that drives the scene. -->
+    <div id="scroll-space" aria-hidden="true"></div>
+
+    <!-- Content panels. Each owns a slice of the scroll timeline via
+         data-start/data-end; sections.js fades and slides them in sync
+         with the rider's descent. -->
+    <main id="sections">
+      <section class="panel intro" data-start="-1" data-end="0.13">
+        <p class="kicker">Welcome to the mountain</p>
+        <h1>Avery Bettesworth</h1>
+        <p class="tagline">
+          CompE student @ University of Alberta.
+          Edmonton, AB, class of 2028.
+        </p>
+        <p class="hint">Scroll to drop in <span class="chev">&#9662;</span></p>
+      </section>
+
+      <section class="panel side left" data-start="0.15" data-end="0.32">
+        <p class="kicker">01 / Experience</p>
+        <h2>Where I've worked</h2>
+        <article>
+          <h3>Computer Technician</h3>
+          <p class="meta">Alberta Computers for Schools, Edmonton &middot; Jan to May 2026</p>
+          <p>
+            Refurbished, repaired, and QA tested 200+ enterprise devices end
+            to end, and built a Python automation tool that cut database
+            logging time by 80%.
+          </p>
+        </article>
+        <article>
+          <h3>Sales Associate</h3>
+          <p class="meta">TJX Canada, Red Deer &middot; Sep 2022 to Feb 2024</p>
+          <p>
+            Customer service at 300+ transactions a day, warehouse stock
+            processing, and training new hires.
+          </p>
+        </article>
+      </section>
+
+      <section class="panel side right" data-start="0.36" data-end="0.5">
+        <p class="kicker">02 / Education</p>
+        <h2>Where I study</h2>
+        <article>
+          <h3>BSc Computer Engineering, Co-op</h3>
+          <p class="meta">University of Alberta &middot; Class of 2028</p>
+          <p>
+            Studying everything from transistors to operating systems, with
+            co-op work terms along the way.
+          </p>
+        </article>
+        <article>
+          <h3>Hackathons</h3>
+          <p class="meta">HackED 2025 &middot; natHACKS 2024</p>
+          <p>
+            Team builds under 72-hour deadlines, from BCI focus tools to
+            formula sheet apps.
+          </p>
+        </article>
+      </section>
+
+      <section class="panel side left" data-start="0.54" data-end="0.66">
+        <p class="kicker">03 / Skills</p>
+        <h2>What I work with</h2>
+        <div class="chips">
+          <span>Python</span>
+          <span>C/C++</span>
+          <span>Java</span>
+          <span>MATLAB</span>
+          <span>Assembly</span>
+          <span>Arduino</span>
+          <span>BCI Devices</span>
+          <span>Git</span>
+        </div>
+      </section>
+
+      <section class="panel side right compact" data-start="0.7" data-end="0.86">
+        <p class="kicker">04 / Projects</p>
+        <h2>Things I've built</h2>
+        <article>
+          <h3>
+            <a href="https://github.com/Betts6430/CrossBot" target="_blank" rel="noopener">CrossBot</a>
+          </h3>
+          <p>
+            Browser extension that solves crosswords in real time with a local
+            constraint solver and an optional LLM booster.
+          </p>
+        </article>
+        <article>
+          <h3>
+            <a href="https://github.com/Betts6430/ApartmentFinder" target="_blank" rel="noopener">ApartmentFinder</a>
+          </h3>
+          <p>
+            Edmonton rental aggregator that scrapes listings, ranks them by
+            value and commute, and emails new matches.
+          </p>
+        </article>
+        <article>
+          <h3>
+            <a href="https://github.com/Betts6430/formula-sheet-hub" target="_blank" rel="noopener">Formula Sheet Hub</a>
+            <span class="tag">HackED 2025</span>
+          </h3>
+          <p>
+            Minimal web app for building and sharing formula sheets with
+            LaTeX rendering.
+          </p>
+        </article>
+        <article>
+          <h3>
+            <a href="https://github.com/daksh3333/Neuro-Stress-Monitor" target="_blank" rel="noopener">FocusBoost</a>
+            <span class="tag">natHACKS 2024</span>
+          </h3>
+          <p>
+            BCI focus tracker that reads brainwaves through Arduino and flags
+            attention lapses in real time.
+          </p>
+        </article>
+        <article>
+          <h3>
+            <a href="https://github.com/Betts6430/baccarat-bot" target="_blank" rel="noopener">BaccaratBot</a>
+          </h3>
+          <p>
+            Casino simulator with 15+ betting strategies to compare win
+            rates, longevity, and profit tactics.
+          </p>
+        </article>
+        <article>
+          <h3>
+            <a href="https://1drv.ms/p/c/9a12fdcfa8eb2c87/IQCHLOuoz_0SIICazF8AAAAAAWRik2s1SgKdLE4IefPHUqc?e=rJLTsQ" target="_blank" rel="noopener">Recreation Centre Redesign</a>
+          </h3>
+          <p>
+            Full-scale engineering design for a 2000+ person recreation
+            centre with a six-person team.
+          </p>
+        </article>
+      </section>
+    </main>
+
+    <!-- Contact bib: pinned each frame to the rider's jacket back panel by
+         projecting its 3D anchors to screen space. Real links, clickable. -->
+    <div id="bib">
+      <p class="bib-name">Avery Bettesworth</p>
+      <nav>
+        <a href="mailto:abettesw@ualberta.ca">abettesw@ualberta.ca</a>
+        <a href="tel:+14038481760">403-848-1760</a>
+        <a href="https://github.com/Betts6430" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://linkedin.com/in/avery-bettesworth" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://devpost.com/abettesw" target="_blank" rel="noopener">DevPost</a>
+        <a href="resume.pdf" target="_blank" rel="noopener">R&eacute;sum&eacute;</a>
+      </nav>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
