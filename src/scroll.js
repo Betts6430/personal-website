@@ -5,13 +5,15 @@
 // how the user scrolls (wheel steps, scrollbar drags, touch flicks).
 
 export function createScrollTimeline({ smoothing = 6 } = {}) {
-  let value = 0;
-
   function target() {
     const max = document.documentElement.scrollHeight - window.innerHeight;
     if (max <= 0) return 0;
     return Math.min(1, Math.max(0, window.scrollY / max));
   }
+
+  // Start at the restored scroll position so a mid-page refresh resumes in
+  // place instead of fast-forwarding the ride from the summit.
+  let value = target();
 
   return {
     /** Advance the eased value by dt seconds and return it. */
