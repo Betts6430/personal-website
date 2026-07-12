@@ -65,13 +65,16 @@ Keep it that way.
   (four jacket-back corners) and `layoutBib()`
   to size them to the card's aspect ratio. Gear colors are the constants
   at the top of the file.
-- `src/trail.js` - full carve ribbon prebuilt from `poseAt`, revealed with
-  `drawRange` so it un-draws on reverse scroll.
+- `src/trail.js` - the carve track as a shallow V-groove (lit wall, shaded
+  wall, tinted trough, so it reads as carved snow, not a painted stripe),
+  prebuilt from `poseAt` and revealed with `drawRange` so it un-draws on
+  reverse scroll.
 - `src/spray.js` - fixed-pool ring-buffer particles.
 - `src/doodle.js` - snow doodles: while the mouse button is held, the
   pointer is projected onto the snow surface analytically; dragging kicks
-  up plumes (its own spray pool) and draws a dotted carve line that fades
-  in seconds. Everything is transient and time-based, so the
+  up plumes (its own spray pool) and presses an embossed carve line into
+  the snow (uniform pen-stepped sprites shaded to match the sun) that
+  fades in seconds. Everything is transient and time-based, so the
   pure-function-of-p invariant holds. Touch is ignored (drags scroll).
 - `src/sections.js` - panel opacity/slide from timeline ranges.
 

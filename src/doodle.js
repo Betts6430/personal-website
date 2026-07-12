@@ -4,14 +4,16 @@ import { createSpray } from './spray.js';
 
 // Cursor doodles: click and drag to pull a glove through the powder. While
 // the button is held, the pointer is projected onto the snow surface; as it
-// moves it kicks up a small plume (its own spray pool) and leaves a dotted
-// carve line that fades out after a few seconds. Everything here is
+// moves it kicks up a small plume (its own spray pool) and presses an
+// embossed carve line into the snow that fades out after a few seconds
+// (overlapping shaded sprites, matching the rider's groove). Everything is
 // transient and time-based, like the snowfall, so the "any p renders the
 // same frame" scroll invariant is untouched: let go and the snow heals.
 
-const MAX_DOTS = 1200;
+const MAX_DOTS = 2600;
 const DOT_LIFE = 4.5; // seconds a line dot stays visible
-const STEP = 0.3; // world units between dots along a stroke
+const STEP = 0.12; // world units between dots; dots are 3x wider, so they
+// overlap into a continuous groove instead of a bead chain
 const MAX_RANGE = 250; // ignore hits out past the fog
 const LIFT = 0.05; // sit just above the snow (and the carve trail)
 
@@ -33,7 +35,9 @@ export function createSnowDoodle(texture) {
     uTime: { value: 0 },
     uLife: { value: DOT_LIFE },
     uScale: { value: 1 },
-    uColor: { value: new THREE.Color(0xc7dcec) }, // matches the carve trail
+    // Trough shade and lip light, matching the rider's carved trail.
+    uDark: { value: new THREE.Color(0x99bcd4) },
+    uLight: { value: new THREE.Color(0xf6fbff) },
   };
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -54,13 +58,20 @@ export function createSnowDoodle(texture) {
       }
     `,
     fragmentShader: /* glsl */ `
-      uniform vec3 uColor;
+      uniform vec3 uDark;
+      uniform vec3 uLight;
       varying float vFade;
       void main() {
-        // Kept faint: strokes overlap heavily, so per-dot alpha stacks up.
-        float a = smoothstep(0.5, 0.3, length(gl_PointCoord - 0.5)) * vFade * 0.38;
+        vec2 d = gl_PointCoord - 0.5;
+        float mask = smoothstep(0.5, 0.34, length(d));
+        // Fake an indentation: the scene sun sits screen upper-right, so
+        // inside a depression the upper-right wall falls into shade and
+        // the lower-left wall catches light (gl_PointCoord y runs down).
+        float shade = clamp(0.5 + 1.8 * dot(d, vec2(0.707, -0.707)), 0.0, 1.0);
+        vec3 col = mix(uLight, uDark, shade);
+        float a = mask * vFade * 0.5;
         if (a < 0.01) discard;
-        gl_FragColor = vec4(uColor, a);
+        gl_FragColor = vec4(col, a);
       }
     `,
   });
@@ -71,7 +82,7 @@ export function createSnowDoodle(texture) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const hit = new THREE.Vector3();
-  const prev = new THREE.Vector3();
+  const pen = new THREE.Vector3(); // last laid dot; walks toward each hit
   const stroke = new THREE.Vector3();
   const plumeVel = new THREE.Vector3();
   let hasPrev = false;
@@ -134,20 +145,25 @@ export function createSnowDoodle(texture) {
       pointerMoved = false;
       if (projectToSnow(camera, hit)) {
         if (!hasPrev) {
-          prev.copy(hit);
+          pen.copy(hit);
           hasPrev = true;
         } else {
-          const dist = hit.distanceTo(prev);
+          // Walk the pen toward the hit in exact STEP increments; the
+          // sub-STEP remainder carries into the next event, so spacing
+          // stays uniform no matter how the pointer moves.
+          stroke.subVectors(hit, pen);
+          const dist = stroke.length();
           if (dist >= STEP) {
-            const steps = Math.min(60, Math.floor(dist / STEP));
-            for (let k = 1; k <= steps; k++) {
-              const f = k / steps;
-              addDot(prev.x + (hit.x - prev.x) * f, prev.z + (hit.z - prev.z) * f, time);
+            stroke.divideScalar(dist);
+            const n = Math.floor(dist / STEP);
+            const count = Math.min(240, n);
+            const step = n > count ? dist / count : STEP;
+            for (let k = 0; k < count; k++) {
+              pen.addScaledVector(stroke, step);
+              addDot(pen.x, pen.z, time);
             }
-            stroke.subVectors(hit, prev).normalize();
             plumeVel.set(stroke.x * 1.7, 1.25, stroke.z * 1.7);
-            powder.emit(hit, plumeVel, Math.min(4, 1 + (steps >> 1)));
-            prev.copy(hit);
+            powder.emit(hit, plumeVel, Math.min(4, 1 + (count >> 2)));
             geo.attributes.position.needsUpdate = true;
             geo.attributes.aBorn.needsUpdate = true;
           }
