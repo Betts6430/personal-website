@@ -251,3 +251,63 @@ export function createSnowfall() {
 
   return { points, update };
 }
+
+// Birds cross the sky over this much x before wrapping; the ends sit well
+// outside the frustum so the wrap is never on screen.
+const BIRD_SPAN = 280;
+
+/**
+ * A few gulls gliding across the sky: two-triangle silhouettes on long
+ * straight flight lines, with flapping that eases in and out of glides.
+ * Like the snowfall, they are a pure function of elapsed time; nothing
+ * depends on scroll history.
+ */
+export function createBirds() {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0x1d3547, side: THREE.DoubleSide });
+  const wingGeo = new THREE.BufferGeometry();
+  wingGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute([0.35, 0, 0, -0.25, 0, 0, 0.05, 0, 1], 3),
+  );
+
+  // One loose trio heading right, a distant pair heading left; starting
+  // positions are spread through the view so the sky has life immediately.
+  // [x0, y, z, speed, scale, flapRate, phase]
+  const BIRDS = [
+    [-30, 38, -120, 6.0, 2.8, 7.0, 0],
+    [-46, 41, -128, 6.0, 2.4, 7.8, 1.7],
+    [-59, 36, -113, 6.0, 2.5, 7.4, 3.4],
+    [70, 47, -170, -5.2, 3.0, 6.2, 0.8],
+    [93, 44, -178, -5.2, 2.7, 6.8, 2.9],
+  ];
+  const birds = BIRDS.map(([x0, y, z, speed, scale, flapRate, phase]) => {
+    const b = new THREE.Group();
+    const right = new THREE.Mesh(wingGeo, mat);
+    const left = new THREE.Mesh(wingGeo, mat);
+    left.scale.z = -1;
+    b.add(right, left);
+    b.scale.setScalar(scale);
+    b.rotation.y = speed > 0 ? 0 : Math.PI;
+    group.add(b);
+    return { b, right, left, x0, y, z, speed, flapRate, phase };
+  });
+
+  function update(time) {
+    for (const k of birds) {
+      const x =
+        ((((k.x0 + BIRD_SPAN / 2 + k.speed * time) % BIRD_SPAN) + BIRD_SPAN) %
+          BIRD_SPAN) -
+        BIRD_SPAN / 2;
+      k.b.position.set(x, k.y + Math.sin(time * 0.4 + k.phase) * 1.5, k.z);
+      // Flap amplitude swells and fades so each bird alternates between
+      // beating and gliding, out of phase with its neighbours.
+      const effort = 0.25 + 0.75 * Math.max(0, Math.sin(time * 0.5 + k.phase * 2));
+      const a = Math.sin(time * k.flapRate + k.phase) * 0.65 * effort;
+      k.right.rotation.x = a;
+      k.left.rotation.x = -a;
+    }
+  }
+
+  return { group, update };
+}

@@ -4,6 +4,9 @@
   --ice-blue: #7fb5d6;
   --ice-deep: #2e6f9e;
   --ink: #1d3547;
+  /* Bib cloth: a shade dimmer than snow-white so the card sits in the
+     jacket's lighting instead of glowing against it. */
+  --bib-cloth: #eaf2f8;
 }
 
 * {
@@ -220,39 +223,64 @@ body {
 }
 
 /* --- Contact bib ---------------------------------------------------------- */
-/* Position, rotation, and scale are set per frame from the projected jacket
-   anchors, so it rides the rider's idle sway like a printed race bib. */
+/* A race bib pinned to the jacket: every frame main.js projects the four
+   back-panel anchors to screen space and bib.js warps the card onto them
+   with a matrix3d homography, so it foreshortens and sways with the torso
+   plane. Styled like fabric: cloth tint, stitched inner border, snap pins. */
 
 #bib {
   position: fixed;
   left: 0;
   top: 0;
-  width: 256px;
-  padding: 18px 20px;
-  background: var(--snow-white);
-  border: 2px solid var(--ice-deep);
+  width: 264px;
+  padding: 20px 18px 16px;
+  background: var(--bib-cloth);
+  border: 1px solid var(--ice-deep);
+  outline: 1px dashed var(--ice-blue);
+  outline-offset: -6px;
   text-align: center;
   opacity: 0;
   pointer-events: none;
+  transform-origin: 0 0;
   will-change: transform, opacity;
 }
 
+/* Snap pins holding the top corners to the jacket. */
+#bib::before,
+#bib::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ice-deep);
+}
+
+#bib::before {
+  left: 6px;
+}
+
+#bib::after {
+  right: 6px;
+}
+
 .bib-name {
-  font-size: 1.22rem;
+  font-size: 1.3rem;
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 #bib nav {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 7px 16px;
+  gap: 8px 16px;
 }
 
 #bib a {
   color: var(--ice-deep);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   white-space: nowrap;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;

@@ -62,9 +62,12 @@ const FINALE_BASE = pathAt(FINALE_START);
 
 /**
  * Full run pose including the finale. Before FINALE_START this is pathAt;
- * after it, the rider straightens toward the camera, decelerates, whips the
- * board sideways in a hockey stop, and comes to rest with his back square
- * to the lens at STOP_Z.
+ * after it the rider keeps carving: the last sine arc swings wide and
+ * sweeps back to the centerline exactly at p = 1 (the carve phase hits
+ * 6 pi there), so the hockey stop is the natural end of a swooping turn
+ * rather than a straight run-in. Only z is remapped (deceleration into
+ * STOP_Z), the yaw whips sideways late in the sweep, and settle damps the
+ * last of the lateral drift so he is dead still once the bib is up.
  *
  * Extra fields: skid (0..1 pulse during the stop, drives the spray burst
  * and deep knee compression) and ft (0..1 progress through the finale,
@@ -73,20 +76,18 @@ const FINALE_BASE = pathAt(FINALE_START);
 export function poseAt(p) {
   if (p <= FINALE_START) return { ...pathAt(p), skid: 0, ft: 0 };
 
-  const b = FINALE_BASE;
   const t = (p - FINALE_START) / (1 - FINALE_START);
+  const pl = pathAt(p);
 
-  const straighten = smoothstep(t / 0.5);
-  const whip = smoothstep((t - 0.55) / 0.4);
-  const skid = Math.sin(Math.PI * Math.min(1, Math.max(0, (t - 0.55) / 0.42)));
+  const whip = smoothstep((t - 0.7) / 0.25);
+  const skid = Math.sin(Math.PI * Math.min(1, Math.max(0, (t - 0.68) / 0.3)));
   const settle = smoothstep((t - 0.85) / 0.15);
 
-  const z = b.z + (STOP_Z - b.z) * (1 - Math.pow(1 - t, 1.8));
-  const x = b.x * (1 - straighten);
-  const yaw = b.yaw * (1 - smoothstep(t / 0.45)) + whip * (Math.PI / 2);
-  const lean = b.lean * (1 - smoothstep(t / 0.45)) - 0.42 * skid;
-  const intensity =
-    b.intensity * (1 - smoothstep(t / 0.45)) + 0.85 * skid + 0.15 * settle;
+  const z = FINALE_BASE.z + (STOP_Z - FINALE_BASE.z) * (1 - Math.pow(1 - t, 1.8));
+  const x = pl.x * (1 - settle);
+  const yaw = pl.yaw * (1 - whip) + whip * (Math.PI / 2);
+  const lean = pl.lean * (1 - whip) - 0.42 * skid;
+  const intensity = pl.intensity * (1 - whip) + 0.85 * skid + 0.15 * settle;
 
   return {
     x,
@@ -95,8 +96,8 @@ export function poseAt(p) {
     yaw,
     lean,
     intensity: Math.min(1, intensity),
-    outSign: 1,
-    phase: b.phase,
+    outSign: pl.outSign,
+    phase: pl.phase,
     skid,
     ft: t,
   };

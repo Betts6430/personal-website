@@ -34,18 +34,25 @@ Keep it that way.
 - `src/world.js` - shared world math: SLOPE, run extents, `hillY`,
   `surfaceY`, `terrainNoise`, seeded RNG; `pathAt(p)` (sine carve path,
   amplitude tapers `(1 - 0.85p)` to stay in-frustum near the camera) and
-  `poseAt(p)` (adds the finale: straighten, hockey stop, settle after
-  `FINALE_START = 0.86`, rest at `STOP_Z`).
+  `poseAt(p)` (adds the finale after `FINALE_START = 0.86`: the carve
+  continues through the last arc, sweeping back to the centerline at p = 1,
+  where a late yaw whip and skid turn it into the hockey stop at `STOP_Z`).
 - `src/main.js` - renderer, camera, lights, frame loop `renderFrame(p, dt)`:
   rider transform, spray emission (rate scales with scroll speed x carve
-  intensity), finale camera dolly, bib screen-space projection from the
-  rider's back-panel anchors, and the static-mode boot branch.
+  intensity), finale camera dolly, projecting the rider's four bib corner
+  anchors to screen space for `src/bib.js`, and the static-mode boot branch.
+- `src/bib.js` - warps the DOM contact card onto the projected jacket
+  anchors with a matrix3d homography, so it foreshortens and sways with
+  the torso plane like fabric pinned to the jacket.
 - `src/environment.js` - hill mesh (vertex noise, flat riding corridor,
   vertex-color mottling), instanced pine forest, boulders, fog-exempt
-  mountain silhouettes, snowfall points.
-- `src/rider.js` - procedural rig from primitives; legs use analytic
-  2-bone IK (ankles pinned to boots, knees solved); exposes
-  `anchorTop`/`anchorBottom` for the bib.
+  mountain silhouettes, snowfall points, and gulls crossing the sky
+  (ambience is a pure function of elapsed time, like the snow).
+- `src/rider.js` - procedural rig from primitives; legs and arms use
+  analytic 2-bone IK (ankles pinned to boots, hands chase balance targets,
+  knees/elbows solved); `update()` takes a `rest` factor that relaxes the
+  pose for the finale stop; exposes `bibAnchors` (four jacket-back corners)
+  and `layoutBib()` to size them to the card's aspect ratio.
 - `src/trail.js` - full carve ribbon prebuilt from `poseAt`, revealed with
   `drawRange` so it un-draws on reverse scroll.
 - `src/spray.js` - fixed-pool ring-buffer particles.

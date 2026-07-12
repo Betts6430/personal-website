@@ -8,9 +8,11 @@ import {
   buildRocks,
   buildMountains,
   createSnowfall,
+  createBirds,
   makeRoundTexture,
 } from './environment.js';
 import { createRider } from './rider.js';
+import { createBibPin } from './bib.js';
 import { buildTrail } from './trail.js';
 import { createSpray } from './spray.js';
 
@@ -81,6 +83,9 @@ scene.add(buildMountains());
 const snowfall = createSnowfall();
 scene.add(snowfall.points);
 
+const birds = createBirds();
+scene.add(birds.group);
+
 const rider = createRider();
 // Slightly heroic scale so he reads clearly even at the top of the run.
 rider.group.scale.setScalar(1.2);
@@ -96,6 +101,10 @@ scene.add(spray.points);
 
 const sections = createSections();
 const bib = document.getElementById('bib');
+const bibPin = createBibPin(bib);
+// Size the anchor quad on the jacket to the card's rendered aspect ratio
+// so the homography never has to stretch the content.
+rider.layoutBib(0.34, (0.34 * bib.offsetHeight) / Math.max(bib.offsetWidth, 1));
 
 let elapsed = 0;
 let prevP = 0;
@@ -105,8 +114,13 @@ const tangent = new THREE.Vector3();
 const lateral = new THREE.Vector3();
 const sprayOrigin = new THREE.Vector3();
 const sprayVel = new THREE.Vector3();
-const bibTop = new THREE.Vector3();
-const bibBottom = new THREE.Vector3();
+const bibWorld = new THREE.Vector3();
+const bibPts = {
+  tl: { x: 0, y: 0 },
+  tr: { x: 0, y: 0 },
+  bl: { x: 0, y: 0 },
+  br: { x: 0, y: 0 },
+};
 
 // Camera rig endpoints for the finale push-in.
 const CAM_START = { y: hillY(16) + 3.5, z: 16 };
@@ -130,7 +144,7 @@ function renderFrame(p, dt) {
   rider.group.rotation.y = s.yaw;
   rider.group.rotation.x = SLOPE * (1 - 0.8 * settle);
   rider.group.rotation.z = s.lean;
-  rider.update({ lean: s.lean, intensity: s.intensity, time: elapsed });
+  rider.update({ lean: s.lean, intensity: s.intensity, time: elapsed, rest: settle });
 
   trail.update(p);
   sections.update(p);
@@ -190,24 +204,20 @@ function renderFrame(p, dt) {
   sun.target.position.set(s.x, s.y, s.z);
 
   snowfall.update(elapsed);
+  birds.update(elapsed);
 
-  // Contact bib: pin to the jacket back panel via projected anchors once
-  // the stop is nearly settled.
+  // Contact bib: project the four jacket anchors and warp the card onto
+  // them once the stop is nearly settled, so it tracks the torso plane.
   const bibOpacity = smoothstep((s.ft - 0.8) / 0.15);
   if (bibOpacity > 0) {
-    rider.anchorTop.getWorldPosition(bibTop).project(camera);
-    rider.anchorBottom.getWorldPosition(bibBottom).project(camera);
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const tx = ((bibTop.x + 1) / 2) * w;
-    const ty = ((1 - bibTop.y) / 2) * h;
-    const bx = ((bibBottom.x + 1) / 2) * w;
-    const by = ((1 - bibBottom.y) / 2) * h;
-    const angle = Math.atan2(bx - tx, by - ty);
-    const scale = Math.min(1.7, Math.max(0.8, Math.hypot(bx - tx, by - ty) / 130));
-    bib.style.left = `${((tx + bx) / 2).toFixed(1)}px`;
-    bib.style.top = `${((ty + by) / 2).toFixed(1)}px`;
-    bib.style.transform = `translate(-50%, -50%) rotate(${(-angle).toFixed(4)}rad) scale(${scale.toFixed(3)})`;
+    for (const key of ['tl', 'tr', 'bl', 'br']) {
+      rider.bibAnchors[key].getWorldPosition(bibWorld).project(camera);
+      bibPts[key].x = ((bibWorld.x + 1) / 2) * w;
+      bibPts[key].y = ((1 - bibWorld.y) / 2) * h;
+    }
+    bibPin.update(bibPts.tl, bibPts.tr, bibPts.bl, bibPts.br);
   }
   bib.style.opacity = bibOpacity.toFixed(3);
   bib.style.pointerEvents = bibOpacity > 0.5 ? 'auto' : 'none';
