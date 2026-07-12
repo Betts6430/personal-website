@@ -298,13 +298,16 @@ export function createRider() {
   const restF = new THREE.Vector3();
   const restB = new THREE.Vector3();
   const cuffA = new THREE.Vector3();
+  const grabDir = new THREE.Vector3();
+  const grabTarget = new THREE.Vector3();
 
   /**
    * Pose the body. lean: signed roll the root is under (rad). intensity:
    * 0..1 carve compression. time: seconds, for idle micro-motion. rest:
-   * 0..1, relaxes the pose once the finale stop settles.
+   * 0..1, relaxes the pose once the finale stop settles. grab: 0..1 mid-
+   * trick reach, back hand toward the heel edge, front arm thrown up.
    */
-  function update({ lean, intensity, time, rest = 0 }) {
+  function update({ lean, intensity, time, rest = 0, grab = 0 }) {
     const idle = Math.sin(time * 1.6) * 0.015;
     const hipY = 0.98 - 0.24 * intensity + idle;
     const hipShift = -0.15 * lean;
@@ -346,6 +349,16 @@ export function createRider() {
       restB.set(0.08, shY - 0.6, -0.4);
       handF.lerp(restF, rest);
       handB.lerp(restB, rest);
+    }
+    if (grab > 0) {
+      // The arms cannot actually reach the board, so the back hand extends
+      // at full stretch toward the heel edge, which reads as a grab at any
+      // distance the rider is seen from.
+      grabDir.set(-0.2, 0.16, -0.42).sub(shoulderB).normalize();
+      grabTarget.copy(shoulderB).addScaledVector(grabDir, ARM_UPPER + ARM_FORE - 0.02);
+      handB.lerp(grabTarget, grab);
+      grabTarget.set(0.5, shY + 0.3, 0.55);
+      handF.lerp(grabTarget, grab);
     }
     solveJoint(elbowF, shoulderF, handF, ARM_UPPER, ARM_FORE, ELBOW_BEND_F);
     solveJoint(elbowB, shoulderB, handB, ARM_UPPER, ARM_FORE, ELBOW_BEND_B);

@@ -43,6 +43,9 @@ Keep it that way.
   rider transform, spray emission (rate scales with scroll speed x carve
   intensity), finale camera dolly, projecting the rider's four bib corner
   anchors to screen space for `src/bib.js`, and the static-mode boot branch.
+  Also the pointer handlers: cursor doodles (doodle.js) and a click-the-
+  rider ollie 360, layered on the scroll pose as a pure function of time
+  since the click so it self-resolves to exactly one turn (no scroll state).
 - `src/bib.js` - warps the DOM contact card onto the projected jacket
   anchors with a matrix3d homography, so it foreshortens and sways with
   the torso plane like fabric pinned to the jacket. Race-bib styling
@@ -57,12 +60,17 @@ Keep it that way.
   continuous kicked board); legs and arms use analytic 2-bone IK (ankles
   pinned to boots, hands chase balance targets, knees/elbows solved);
   `update()` takes a `rest` factor that relaxes the pose for the finale
-  stop; exposes `bibAnchors` (four jacket-back corners) and `layoutBib()`
+  stop and a `grab` factor for the mid-trick reach; exposes `bibAnchors`
+  (four jacket-back corners) and `layoutBib()`
   to size them to the card's aspect ratio. Gear colors are the constants
   at the top of the file.
 - `src/trail.js` - full carve ribbon prebuilt from `poseAt`, revealed with
   `drawRange` so it un-draws on reverse scroll.
 - `src/spray.js` - fixed-pool ring-buffer particles.
+- `src/doodle.js` - cursor powder: the pointer is projected onto the snow
+  surface analytically; dragging it kicks up plumes (its own spray pool)
+  and draws a dotted carve line that fades in seconds. Everything is
+  transient and time-based, so the pure-function-of-p invariant holds.
 - `src/sections.js` - panel opacity/slide from timeline ranges.
 
 Fallbacks: `prefers-reduced-motion` or WebGL failure adds

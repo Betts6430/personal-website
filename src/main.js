@@ -15,6 +15,7 @@ import { createRider } from './rider.js';
 import { createBibPin } from './bib.js';
 import { buildTrail } from './trail.js';
 import { createSpray } from './spray.js';
+import { createSnowDoodle } from './doodle.js';
 
 // ---------------------------------------------------------------------------
 // The hill descends toward +Z. The camera sits near the bottom of the run;
@@ -106,6 +107,9 @@ scene.add(trail.mesh);
 const spray = createSpray(makeRoundTexture());
 scene.add(spray.points);
 
+const doodle = createSnowDoodle(makeRoundTexture());
+scene.add(doodle.group);
+
 // --- Per-frame state --------------------------------------------------------------
 
 const sections = createSections();
@@ -118,6 +122,15 @@ rider.layoutBib(0.34, (0.34 * bib.offsetHeight) / Math.max(bib.offsetWidth, 1));
 let elapsed = 0;
 let prevP = 0;
 let sprayAcc = 0;
+let lastP = 0;
+
+// Click-the-rider trick: an ollie 360 layered on top of the scroll pose,
+// driven purely by time since the click (transient, like the ambience),
+// so it needs no scroll state and resolves to exactly one full turn.
+const TRICK_DUR = 0.9;
+let trickStart = -1e9;
+let trickBurst = true;
+let trickDir = 1;
 
 const tangent = new THREE.Vector3();
 const lateral = new THREE.Vector3();
@@ -146,14 +159,36 @@ function renderFrame(p, dt) {
   prevP = p;
 
   const s = poseAt(p);
+  lastP = p;
+
+  // Trick progress: hop arc and a spin that eases through exactly 2 pi,
+  // so the landing frame matches the plain scroll pose with no snap.
+  const tu = (elapsed - trickStart) / TRICK_DUR;
+  const air = tu > 0 && tu < 1 ? Math.sin(Math.PI * tu) : 0;
+  const spin = tu > 0 && tu < 1 ? trickDir * Math.PI * 2 * smoothstep(tu) : 0;
+  if (!trickBurst && tu >= 0.96) {
+    trickBurst = true;
+    sprayOrigin.set(s.x, s.y + 0.05, s.z);
+    sprayVel.set(2.4, 1.7, 0.7);
+    spray.emit(sprayOrigin, sprayVel, 14);
+    sprayVel.set(-2.4, 1.7, -0.7);
+    spray.emit(sprayOrigin, sprayVel, 14);
+  }
+
   // Riding, the body pitches with the slope; once the stop settles he
   // straightens up toward gravity-vertical so the bib hangs level.
   const settle = smoothstep((s.ft - 0.7) / 0.3);
-  rider.group.position.set(s.x, s.y, s.z);
-  rider.group.rotation.y = s.yaw;
+  rider.group.position.set(s.x, s.y + 1.05 * air, s.z);
+  rider.group.rotation.y = s.yaw + spin;
   rider.group.rotation.x = SLOPE * (1 - 0.8 * settle);
   rider.group.rotation.z = s.lean;
-  rider.update({ lean: s.lean, intensity: s.intensity, time: elapsed, rest: settle });
+  rider.update({
+    lean: s.lean,
+    intensity: Math.max(s.intensity, 0.9 * air),
+    time: elapsed,
+    rest: settle,
+    grab: air,
+  });
 
   trail.update(p);
   sections.update(p);
@@ -161,7 +196,9 @@ function renderFrame(p, dt) {
   // Spray. During the run: from the board's downhill edge, thrown toward
   // the outside of the turn. During the finale skid: a plowed burst thrown
   // toward the camera as the board whips sideways.
-  if (s.skid > 0.05) {
+  if (air > 0.08) {
+    sprayAcc = 0; // airborne mid-trick: the board is off the snow
+  } else if (s.skid > 0.05) {
     sprayAcc += 480 * speed01 * s.skid * dt;
   } else {
     sprayAcc += 320 * speed01 * s.intensity * dt;
@@ -214,6 +251,7 @@ function renderFrame(p, dt) {
 
   snowfall.update(elapsed);
   birds.update(elapsed);
+  doodle.update(camera, elapsed, dt);
 
   // Contact bib: project the four jacket anchors and warp the card onto
   // them once the stop is nearly settled, so it tracks the torso plane.
@@ -234,6 +272,48 @@ function renderFrame(p, dt) {
   if (renderer) renderer.render(scene, camera);
 }
 
+// --- Pointer: powder doodles + click-the-rider trick -------------------------------
+
+const pointerNdc = new THREE.Vector2();
+const pointerRay = new THREE.Raycaster();
+const riderScreen = new THREE.Vector3();
+
+function pointerOnRider(clientX, clientY) {
+  pointerNdc.set(
+    (clientX / window.innerWidth) * 2 - 1,
+    1 - (clientY / window.innerHeight) * 2,
+  );
+  pointerRay.setFromCamera(pointerNdc, camera);
+  if (pointerRay.intersectObject(rider.group, true).length > 0) return true;
+  // Forgiving radius so he is still clickable while small up-slope.
+  riderScreen.copy(rider.group.position);
+  riderScreen.y += 1;
+  riderScreen.project(camera);
+  const dx = ((riderScreen.x + 1) / 2) * window.innerWidth - clientX;
+  const dy = ((1 - riderScreen.y) / 2) * window.innerHeight - clientY;
+  return dx * dx + dy * dy < 48 * 48;
+}
+
+function onPointerMove(e) {
+  doodle.onPointerMove(e);
+  if (e.pointerType === 'touch') return;
+  const overUi = e.target instanceof Element && e.target.closest('.panel, #bib, a, button');
+  document.body.style.cursor =
+    !overUi && pointerOnRider(e.clientX, e.clientY) ? 'pointer' : '';
+}
+
+function onPointerDown(e) {
+  if (e.target instanceof Element && e.target.closest('.panel, #bib, a, button')) return;
+  const tu = (elapsed - trickStart) / TRICK_DUR;
+  if (tu > 0 && tu < 1.3) return; // let the current trick land first
+  const s = poseAt(lastP);
+  if (s.ft > 0.35) return; // no spinning once the stop is underway
+  if (!pointerOnRider(e.clientX, e.clientY)) return;
+  trickDir = s.lean >= 0 ? 1 : -1; // spin into the turn
+  trickStart = elapsed;
+  trickBurst = false;
+}
+
 // --- Boot: animated experience or static fallback ---------------------------------
 
 let animated = false;
@@ -242,6 +322,9 @@ function bootAnimated() {
   animated = true;
   const timeline = createScrollTimeline();
   const clock = new THREE.Clock();
+
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerdown', onPointerDown);
 
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.1);
