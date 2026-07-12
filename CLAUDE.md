@@ -66,9 +66,13 @@ Keep it that way.
   to size them to the card's aspect ratio. Gear colors are the constants
   at the top of the file.
 - `src/trail.js` - the carve track as a shallow V-groove (lit wall, shaded
-  wall, tinted trough, so it reads as carved snow, not a painted stripe),
-  prebuilt from `poseAt` and revealed with `drawRange` so it un-draws on
-  reverse scroll.
+  wall, tinted trough, so it reads as carved snow, not a painted stripe;
+  contrast and lip taper with distance up the run), prebuilt from `poseAt`
+  and revealed with `drawRange` so it un-draws on reverse scroll. One
+  deliberate stateful exception: rings revealed while the rider is mid-
+  trick are sunk out of sight (no track where the board was airborne);
+  un-drawing them on reverse scroll restores them, so the gap heals when
+  that stretch is ridden again.
 - `src/spray.js` - fixed-pool ring-buffer particles.
 - `src/doodle.js` - snow doodles: while the mouse button is held, the
   pointer is projected onto the snow surface analytically; dragging kicks

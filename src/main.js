@@ -210,7 +210,7 @@ function renderFrame(p, dt) {
     grab: trick.grab * air,
   });
 
-  trail.update(p);
+  trail.update(p, air > 0.05);
   sections.update(p);
 
   // Spray. During the run: from the board's downhill edge, thrown toward

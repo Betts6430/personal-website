@@ -36,7 +36,7 @@ export function createSnowDoodle(texture) {
     uLife: { value: DOT_LIFE },
     uScale: { value: 1 },
     // Trough shade and lip light, matching the rider's carved trail.
-    uDark: { value: new THREE.Color(0x99bcd4) },
+    uDark: { value: new THREE.Color(0xaecadd) },
     uLight: { value: new THREE.Color(0xf6fbff) },
   };
   const material = new THREE.ShaderMaterial({
@@ -69,7 +69,7 @@ export function createSnowDoodle(texture) {
         // the lower-left wall catches light (gl_PointCoord y runs down).
         float shade = clamp(0.5 + 1.8 * dot(d, vec2(0.707, -0.707)), 0.0, 1.0);
         vec3 col = mix(uLight, uDark, shade);
-        float a = mask * vFade * 0.5;
+        float a = mask * vFade * 0.42;
         if (a < 0.01) discard;
         gl_FragColor = vec4(col, a);
       }
