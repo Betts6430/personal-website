@@ -2,9 +2,10 @@
 
 Personal portfolio site for Avery Bettesworth. Scrolling does not move the
 page; it drives a low-poly snowboarder carving down a ski hill toward a
-fixed camera (Three.js). Content panels fade in along the descent; at 100%
-scroll the rider hockey-stops with his back to the lens and a contact bib
-is pinned to his jacket. Scrolling up rewinds everything.
+fixed camera (Three.js). Content panels fade in along the descent; the
+last carve swoops across the frame and ends in a hockey stop at 100%
+scroll, leaving the rider with his back to the lens and a contact bib
+pinned to his jacket. Scrolling up rewinds everything.
 
 ## Commands
 
@@ -15,7 +16,8 @@ Prefix every npm/node command with:
 export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
 ```
 
-- `npm run dev` - dev server at http://localhost:5173
+- `npm run dev` - dev server at http://localhost:5173 (Vite takes the next
+  free port if that one is busy; check its startup output)
 - `npm run build` - production build to `dist/`
 - `npm run preview` - serve the production build
 
@@ -43,16 +45,21 @@ Keep it that way.
   anchors to screen space for `src/bib.js`, and the static-mode boot branch.
 - `src/bib.js` - warps the DOM contact card onto the projected jacket
   anchors with a matrix3d homography, so it foreshortens and sways with
-  the torso plane like fabric pinned to the jacket.
+  the torso plane like fabric pinned to the jacket. Race-bib styling
+  (cloth tint, stitched dashed inset, snap pins) is `#bib` in styles.css;
+  its size on the back is the `rider.layoutBib(...)` call in main.js.
 - `src/environment.js` - hill mesh (vertex noise, flat riding corridor,
   vertex-color mottling), instanced pine forest, boulders, fog-exempt
   mountain silhouettes, snowfall points, and gulls crossing the sky
   (ambience is a pure function of elapsed time, like the snow).
-- `src/rider.js` - procedural rig from primitives; legs and arms use
-  analytic 2-bone IK (ankles pinned to boots, hands chase balance targets,
-  knees/elbows solved); `update()` takes a `rest` factor that relaxes the
-  pose for the finale stop; exposes `bibAnchors` (four jacket-back corners)
-  and `layoutBib()` to size them to the card's aspect ratio.
+- `src/rider.js` - procedural rig from primitives (octagonal-prism torso
+  and hips, black helmet over a balaclava, wrap-around goggle arc, one
+  continuous kicked board); legs and arms use analytic 2-bone IK (ankles
+  pinned to boots, hands chase balance targets, knees/elbows solved);
+  `update()` takes a `rest` factor that relaxes the pose for the finale
+  stop; exposes `bibAnchors` (four jacket-back corners) and `layoutBib()`
+  to size them to the card's aspect ratio. Gear colors are the constants
+  at the top of the file.
 - `src/trail.js` - full carve ribbon prebuilt from `poseAt`, revealed with
   `drawRange` so it un-draws on reverse scroll.
 - `src/spray.js` - fixed-pool ring-buffer particles.
