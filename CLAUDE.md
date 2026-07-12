@@ -54,8 +54,14 @@ Keep it that way.
   its size on the back is the `rider.layoutBib(...)` call in main.js.
 - `src/environment.js` - hill mesh (vertex noise, flat riding corridor,
   vertex-color mottling), instanced pine forest, boulders, fog-exempt
-  mountain silhouettes, snowfall points, and gulls crossing the sky
-  (ambience is a pure function of elapsed time, like the snow).
+  mountain silhouettes, snowfall points, gulls crossing the sky, a
+  chairlift gliding up the left flank (instanced pylons and merged-geometry
+  chairs on 1px cables, mid-to-far ground only so the fog swallows it),
+  spindrift gusts streaming across the run (GPU-only: the vertex shader
+  computes each wisp from elapsed time via SNOW_Y_GLSL, a GLSL twin of
+  surfaceY that must stay in sync with world.js), and sparse snow-sparkle
+  glints twinkling near the camera. All ambience is a pure function of
+  elapsed time, like the snow.
 - `src/rider.js` - procedural rig from primitives (octagonal-prism torso
   and hips, black helmet over a balaclava, wrap-around goggle arc, one
   continuous kicked board); legs and arms use analytic 2-bone IK (ankles

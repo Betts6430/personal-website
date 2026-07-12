@@ -9,6 +9,9 @@ import {
   buildMountains,
   createSnowfall,
   createBirds,
+  createChairlift,
+  createSpindrift,
+  createSparkles,
   makeRoundTexture,
 } from './environment.js';
 import { createRider } from './rider.js';
@@ -101,6 +104,15 @@ scene.add(snowfall.points);
 
 const birds = createBirds();
 scene.add(birds.group);
+
+const chairlift = createChairlift();
+scene.add(chairlift.group);
+
+const spindrift = createSpindrift();
+scene.add(spindrift.points);
+
+const sparkles = createSparkles();
+scene.add(sparkles.points);
 
 const rider = createRider();
 // Slightly heroic scale so he reads clearly even at the top of the run.
@@ -272,6 +284,9 @@ function renderFrame(p, dt) {
 
   snowfall.update(elapsed);
   birds.update(elapsed);
+  chairlift.update(elapsed);
+  spindrift.update(camera, elapsed);
+  sparkles.update(camera, elapsed);
   doodle.update(camera, elapsed, dt);
 
   // Contact bib: project the four jacket anchors and warp the card onto

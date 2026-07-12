@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   SLOPE,
   hillY,
@@ -9,7 +10,35 @@ import {
 } from './world.js';
 
 // The static winter environment: bumpy snow slope, instanced pine forest,
-// distant peaks, and an animated snowfall particle field.
+// distant peaks, and the ambient life around them (snowfall, gulls, a
+// chairlift, wind-blown spindrift, snow sparkle). Every animated piece is
+// a pure function of elapsed time; nothing depends on scroll history.
+
+/** Pixels per world unit at depth 1, for shader point sizing. */
+function pointScale(camera) {
+  return (
+    (window.innerHeight * Math.min(window.devicePixelRatio, 2)) /
+    (2 * Math.tan((camera.fov * Math.PI) / 360))
+  );
+}
+
+// GLSL twin of world.js's surfaceY, so GPU-driven particles can hug the
+// bumpy snow without a CPU pass. Must stay in sync with terrainNoise,
+// corridorFalloff, and BUMP_HEIGHT.
+const SNOW_Y_GLSL = /* glsl */ `
+  float tnoise(vec2 p) {
+    return sin(p.x * 0.061 + p.y * 0.043) * 0.55 +
+           sin(p.x * 0.017 - p.y * 0.089 + 1.7) * 0.3 +
+           sin(p.x * 0.14 + p.y * 0.021 + 4.2) * 0.15;
+  }
+  float snowY(vec2 p) {
+    float t = clamp((abs(p.x) - 22.0) / 38.0, 0.0, 1.0);
+    float fall = t * t * (3.0 - 2.0 * t);
+    float zl = p.y / ${Math.cos(SLOPE).toFixed(6)};
+    return -${Math.tan(SLOPE).toFixed(6)} * p.y +
+           tnoise(vec2(p.x, zl)) * 2.0 * fall * ${Math.cos(SLOPE).toFixed(6)};
+  }
+`;
 
 // --- Hill --------------------------------------------------------------------
 
@@ -308,4 +337,271 @@ export function createBirds() {
   }
 
   return { group, update };
+}
+
+// --- Chairlift ------------------------------------------------------------------
+// A lift line up the far left flank: pylons, two 1px cables, and chairs
+// that glide up one side and down the other. It lives in the mid-to-far
+// ground (never nearer than LIFT_BOT_Z) so it reads as quiet background
+// motion fading into the fog, not foreground clutter.
+
+const LIFT_X = -52;
+const LIFT_TOP_Z = -320; // past full fog, so the wrap point is never seen
+const LIFT_BOT_Z = -12; // off-frustum at the camera's edge
+const LIFT_H = 8.5; // cable height above the smooth slope
+const CABLE_GAP = 1.3; // half-distance between up and down cables
+const CHAIRS_PER_CABLE = 8;
+const LIFT_SPEED = 3.2; // world units per second along the cable
+
+export function createChairlift() {
+  const group = new THREE.Group();
+  const steel = new THREE.MeshStandardMaterial({ color: 0x8ba1b2, flatShading: true });
+  const chairMat = new THREE.MeshStandardMaterial({ color: 0x5c7185, flatShading: true });
+  const m = new THREE.Matrix4();
+
+  // Pylons: tapered poles from the terrain up to the cable, with a crossbar.
+  const pylonZ = [];
+  for (let i = 0; i < 7; i++) {
+    pylonZ.push(LIFT_TOP_Z + 6 + ((LIFT_BOT_Z - LIFT_TOP_Z - 12) * i) / 6);
+  }
+  const poleGeo = new THREE.CylinderGeometry(0.26, 0.36, 1, 6);
+  poleGeo.translate(0, 0.5, 0); // base at origin so scale.y sets the height
+  const poles = new THREE.InstancedMesh(poleGeo, steel, pylonZ.length);
+  const bars = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(CABLE_GAP * 2 + 0.9, 0.16, 0.16),
+    steel,
+    pylonZ.length,
+  );
+  poles.castShadow = true;
+  bars.castShadow = true;
+  pylonZ.forEach((z, i) => {
+    const base = surfaceY(LIFT_X, z) - 0.4;
+    const top = hillY(z) + LIFT_H;
+    m.makeScale(1, top - base, 1);
+    m.setPosition(LIFT_X, base, z);
+    poles.setMatrixAt(i, m);
+    m.identity();
+    m.setPosition(LIFT_X, top, z);
+    bars.setMatrixAt(i, m);
+  });
+  group.add(poles, bars);
+
+  // Cables: straight 1px lines (the slope is linear, so two points each).
+  const cableMat = new THREE.LineBasicMaterial({ color: 0x7d93a6 });
+  for (const side of [-1, 1]) {
+    const x = LIFT_X + side * CABLE_GAP;
+    const pts = [
+      new THREE.Vector3(x, hillY(LIFT_TOP_Z) + LIFT_H, LIFT_TOP_Z),
+      new THREE.Vector3(x, hillY(LIFT_BOT_Z) + LIFT_H, LIFT_BOT_Z),
+    ];
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), cableMat));
+  }
+
+  // Chairs: hanger + seat + back merged into one geometry, instanced.
+  const hanger = new THREE.BoxGeometry(0.07, 1.45, 0.07);
+  hanger.translate(0, -0.72, -0.22);
+  const seat = new THREE.BoxGeometry(1.0, 0.09, 0.5);
+  seat.translate(0, -1.44, 0.05);
+  const back = new THREE.BoxGeometry(1.0, 0.52, 0.08);
+  back.translate(0, -1.16, -0.25);
+  const total = CHAIRS_PER_CABLE * 2;
+  const chairs = new THREE.InstancedMesh(mergeGeometries([hanger, seat, back]), chairMat, total);
+  chairs.castShadow = true;
+  chairs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  group.add(chairs);
+
+  const L = LIFT_BOT_Z - LIFT_TOP_Z;
+  const spacing = L / CHAIRS_PER_CABLE;
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const pos = new THREE.Vector3();
+  const one = new THREE.Vector3(1, 1, 1);
+
+  function update(time) {
+    for (let i = 0; i < total; i++) {
+      const up = i < CHAIRS_PER_CABLE; // riding toward the summit (-z)
+      const k = up ? i : i - CHAIRS_PER_CABLE;
+      const d = (k * spacing + LIFT_SPEED * time) % L;
+      const z = up ? LIFT_BOT_Z - d : LIFT_TOP_Z + d;
+      pos.set(LIFT_X + (up ? -CABLE_GAP : CABLE_GAP), hillY(z) + LIFT_H, z);
+      // Chairs face their direction of travel, with a slow pendulum sway.
+      e.set(0.05 * Math.sin(time * 0.7 + i * 1.7), up ? Math.PI : 0, 0);
+      q.setFromEuler(e);
+      m.compose(pos, q, one);
+      chairs.setMatrixAt(i, m);
+    }
+    chairs.instanceMatrix.needsUpdate = true;
+  }
+
+  return { group, update };
+}
+
+// --- Spindrift ---------------------------------------------------------------------
+// Occasional gusts of wind-blown snow streaming low across the run. Each
+// gust is a loose trail of particles that sweeps from the right flank
+// toward the left on its own repeat period, entirely computed in the
+// vertex shader from elapsed time, so the CPU cost is one uniform write.
+
+const GUSTS = 6;
+const GUST_PARTICLES = 34;
+
+export function createSpindrift() {
+  const rng = mulberry32(2718);
+  const count = GUSTS * GUST_PARTICLES;
+  const positions = new Float32Array(count * 3); // xz start; y is lift height
+  const vels = new Float32Array(count * 2);
+  const timings = new Float32Array(count * 3); // period, offset, travel time
+  const miscs = new Float32Array(count * 2); // brightness, sway phase
+
+  let i = 0;
+  for (let g = 0; g < GUSTS; g++) {
+    const x0 = 50 + rng() * 18;
+    const z0 = -35 - rng() * 120;
+    const drift = 0.15 + rng() * 0.3; // downhill slant of the wind
+    const inv = 1 / Math.hypot(1, drift);
+    const dx = -inv;
+    const dz = drift * inv;
+    const speed = 9 + rng() * 5;
+    const dur = 115 / speed; // seconds to cross the run
+    const period = dur * (1.7 + rng() * 1.2); // quiet gap between gusts
+    const offset = rng() * period;
+    for (let k = 0; k < GUST_PARTICLES; k++, i++) {
+      const lag = rng(); // 0 at the head of the gust, 1 at the tail
+      const along = -lag * 9;
+      const lat = (rng() - 0.5) * 2.6;
+      positions[i * 3] = x0 + dx * along - dz * lat;
+      positions[i * 3 + 1] = 0.12 + rng() * 0.5 + lag * 0.25;
+      positions[i * 3 + 2] = z0 + dz * along + dx * lat;
+      const sj = speed * (0.9 + rng() * 0.2); // shear stretches the tail
+      vels[i * 2] = dx * sj;
+      vels[i * 2 + 1] = dz * sj;
+      timings[i * 3] = period;
+      timings[i * 3 + 1] = offset + rng() * 0.4;
+      timings[i * 3 + 2] = dur;
+      miscs[i * 2] = 0.24 + (1 - lag) * 0.22;
+      miscs[i * 2 + 1] = rng() * Math.PI * 2;
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aVel', new THREE.BufferAttribute(vels, 2));
+  geo.setAttribute('aTiming', new THREE.BufferAttribute(timings, 3));
+  geo.setAttribute('aMisc', new THREE.BufferAttribute(miscs, 2));
+
+  const uniforms = { uTime: { value: 0 }, uScale: { value: 1 } };
+  const points = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      uniforms,
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        attribute vec2 aVel;
+        attribute vec3 aTiming;
+        attribute vec2 aMisc;
+        uniform float uTime, uScale;
+        varying float vAlpha;
+        ${SNOW_Y_GLSL}
+        void main() {
+          float tc = mod(uTime + aTiming.y, aTiming.x);
+          float prog = tc / aTiming.z;
+          vec2 p = position.xz + aVel * tc;
+          // Swell in, stream, and die out; past prog 1 the gust rests.
+          float env = smoothstep(0.0, 0.12, prog) * (1.0 - smoothstep(0.55, 1.0, prog));
+          float y = snowY(p) + position.y +
+                    0.1 * sin(uTime * 2.8 + aMisc.y) * (0.5 + position.y);
+          vec4 mv = modelViewMatrix * vec4(p.x, y, p.y, 1.0);
+          vAlpha = env * aMisc.x * (1.0 - smoothstep(150.0, 240.0, -mv.z));
+          gl_PointSize = 0.9 * uScale / -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying float vAlpha;
+        void main() {
+          float a = smoothstep(0.5, 0.12, length(gl_PointCoord - 0.5)) * vAlpha;
+          if (a < 0.01) discard;
+          gl_FragColor = vec4(0.97, 0.99, 1.0, a);
+        }
+      `,
+    }),
+  );
+  points.frustumCulled = false;
+
+  function update(camera, time) {
+    uniforms.uTime.value = time;
+    uniforms.uScale.value = pointScale(camera);
+  }
+
+  return { points, update };
+}
+
+// --- Snow sparkle --------------------------------------------------------------------
+// Sparse glints scattered on the snow near the camera, each flashing
+// briefly on its own cycle like sun catching ice crystals. Fixed seeded
+// positions; the twinkle is pure shader work.
+
+const SPARKLES = 130;
+
+export function createSparkles() {
+  const rng = mulberry32(1313);
+  const positions = new Float32Array(SPARKLES * 3);
+  const phases = new Float32Array(SPARKLES);
+  const rates = new Float32Array(SPARKLES);
+  for (let i = 0; i < SPARKLES; i++) {
+    const x = (rng() * 2 - 1) * 58;
+    const z = 8 - rng() * rng() * 140; // denser near the camera
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = surfaceY(x, z) + 0.03;
+    positions[i * 3 + 2] = z;
+    phases[i] = rng() * Math.PI * 2;
+    rates[i] = 0.5 + rng() * 0.9;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+  geo.setAttribute('aRate', new THREE.BufferAttribute(rates, 1));
+
+  const uniforms = { uTime: { value: 0 }, uScale: { value: 1 } };
+  const points = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      uniforms,
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        attribute float aPhase, aRate;
+        uniform float uTime, uScale;
+        varying float vAlpha;
+        void main() {
+          // High power keeps each glint dark most of its cycle with one
+          // brief bright flash.
+          float glint = pow(max(sin(uTime * aRate + aPhase), 0.0), 14.0);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vAlpha = glint * (1.0 - smoothstep(90.0, 160.0, -mv.z));
+          gl_PointSize = (0.05 + 0.06 * glint) * uScale / -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying float vAlpha;
+        void main() {
+          vec2 d = abs(gl_PointCoord - 0.5);
+          float a = clamp(1.0 - (d.x + d.y) * 2.4, 0.0, 1.0) * vAlpha * 0.85;
+          if (a < 0.01) discard;
+          gl_FragColor = vec4(1.0, 1.0, 1.0, a);
+        }
+      `,
+    }),
+  );
+  points.frustumCulled = false;
+
+  function update(camera, time) {
+    uniforms.uTime.value = time;
+    uniforms.uScale.value = pointScale(camera);
+  }
+
+  return { points, update };
 }
