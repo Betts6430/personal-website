@@ -324,3 +324,29 @@ body.static-mode #bib {
   transform: none !important;
   margin: 0 auto 48px;
 }
+
+/* Opt-in control for the animated ride: hidden everywhere except the
+   static fallback with a working renderer (reduced-motion visitors). */
+#play-ride {
+  display: none;
+}
+
+body.static-mode.can-animate #play-ride {
+  display: block;
+  margin: 0 auto 22px;
+  padding: 11px 22px;
+  background: var(--snow-white);
+  border: 1px solid var(--ice-deep);
+  color: var(--ice-deep);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#play-ride:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}

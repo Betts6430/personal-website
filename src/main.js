@@ -34,12 +34,21 @@ const canvas = document.getElementById('scene');
 let renderer = null;
 try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch {
+  // Some low-end devices refuse an antialiased context; try once more
+  // without it before falling back to the static document.
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  } catch {
+    renderer = null;
+  }
+}
+if (renderer) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-} catch {
-  renderer = null;
+} else {
   canvas.remove();
 }
 
@@ -227,7 +236,10 @@ function renderFrame(p, dt) {
 
 // --- Boot: animated experience or static fallback ---------------------------------
 
-if (renderer && !reducedMotion) {
+let animated = false;
+
+function bootAnimated() {
+  animated = true;
   const timeline = createScrollTimeline();
   const clock = new THREE.Clock();
 
@@ -237,24 +249,31 @@ if (renderer && !reducedMotion) {
     requestAnimationFrame(frame);
   }
   frame();
+}
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+window.addEventListener('resize', () => {
+  if (!renderer) return;
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (!animated) renderFrame(0.5, 0.016);
+});
+
+if (renderer && !reducedMotion) {
+  bootAnimated();
 } else {
   // Reduced motion or no WebGL: plainly scrolling document. If we can
-  // render at all, hold one mid-run vista behind the content; the
-  // static-mode stylesheet forces every panel and the bib visible.
+  // render at all, hold one mid-run vista behind the content and reveal
+  // the #play-ride control; motion the visitor asks for by name is fine
+  // even under prefers-reduced-motion.
   document.body.classList.add('static-mode');
   if (renderer) {
+    document.body.classList.add('can-animate');
     renderFrame(0.5, 0.016);
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderFrame(0.5, 0.016);
+    document.getElementById('play-ride').addEventListener('click', () => {
+      document.body.classList.remove('static-mode', 'can-animate');
+      window.scrollTo(0, 0);
+      bootAnimated();
     });
   }
 }

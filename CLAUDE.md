@@ -67,7 +67,12 @@ Keep it that way.
 
 Fallbacks: `prefers-reduced-motion` or WebGL failure adds
 `body.static-mode` (see styles.css), which turns the site into a plainly
-scrolling document with one static rendered vista.
+scrolling document with one static rendered vista. When a renderer exists
+(the reduced-motion case), `body.can-animate` also reveals `#play-ride`,
+an explicit opt-in button that boots the animated ride. Renderer creation
+retries without antialiasing before giving up; browsers with WebGL
+disabled (common in in-app browsers) keep the static document. When
+diagnosing "no animations" reports, these two branches are the suspects.
 
 ## Design rules (user-mandated)
 
