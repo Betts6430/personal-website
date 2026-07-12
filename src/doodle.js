@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { SLOPE, surfaceY } from './world.js';
 import { createSpray } from './spray.js';
 
-// Cursor doodles: the pointer acts like a glove dragged through the powder.
-// Each frame the pointer is projected onto the snow surface; when it moves
-// it kicks up a small plume (its own spray pool) and leaves a dotted carve
-// line that fades out after a few seconds. Everything here is transient and
-// time-based, like the snowfall, so the "any p renders the same frame"
-// scroll invariant is untouched: wait a moment and the snow is pristine.
+// Cursor doodles: click and drag to pull a glove through the powder. While
+// the button is held, the pointer is projected onto the snow surface; as it
+// moves it kicks up a small plume (its own spray pool) and leaves a dotted
+// carve line that fades out after a few seconds. Everything here is
+// transient and time-based, like the snowfall, so the "any p renders the
+// same frame" scroll invariant is untouched: let go and the snow heals.
 
 const MAX_DOTS = 1200;
 const DOT_LIFE = 4.5; // seconds a line dot stays visible
@@ -76,10 +76,23 @@ export function createSnowDoodle(texture) {
   const plumeVel = new THREE.Vector3();
   let hasPrev = false;
   let pointerMoved = false;
+  let drawing = false;
   let head = 0;
 
+  function onPointerDown(e) {
+    if (e.pointerType === 'touch') return; // touch drags are for scrolling
+    drawing = true;
+    hasPrev = false;
+    onPointerMove(e);
+  }
+
+  function onPointerUp() {
+    drawing = false;
+    hasPrev = false;
+  }
+
   function onPointerMove(e) {
-    if (e.pointerType === 'touch') return;
+    if (!drawing || e.pointerType === 'touch') return;
     ndc.set((e.clientX / window.innerWidth) * 2 - 1, 1 - (e.clientY / window.innerHeight) * 2);
     pointerMoved = true;
   }
@@ -147,5 +160,5 @@ export function createSnowDoodle(texture) {
     powder.update(dt);
   }
 
-  return { group, onPointerMove, update };
+  return { group, onPointerDown, onPointerUp, onPointerMove, update };
 }

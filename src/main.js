@@ -124,10 +124,17 @@ let prevP = 0;
 let sprayAcc = 0;
 let lastP = 0;
 
-// Click-the-rider trick: an ollie 360 layered on top of the scroll pose,
-// driven purely by time since the click (transient, like the ambience),
-// so it needs no scroll state and resolves to exactly one full turn.
-const TRICK_DUR = 0.9;
+// Click-the-rider tricks, layered on top of the scroll pose and driven
+// purely by time since the click (transient, like the ambience). Spins and
+// flips ease through exact full turns so the landing frame matches the
+// plain scroll pose with no snap. Picked at random, never twice in a row.
+const TRICKS = [
+  { dur: 0.9, hop: 1.05, spin: 1, flip: 0, arch: 0, grab: 1 }, // ollie 360 grab
+  { dur: 1.05, hop: 1.45, spin: 0, flip: 0, arch: 0.55, grab: 1 }, // method air
+  { dur: 1.15, hop: 1.35, spin: 0, flip: 1, arch: 0, grab: 0.7 }, // backflip
+];
+let trick = TRICKS[0];
+let trickIdx = 0;
 let trickStart = -1e9;
 let trickBurst = true;
 let trickDir = 1;
@@ -161,11 +168,12 @@ function renderFrame(p, dt) {
   const s = poseAt(p);
   lastP = p;
 
-  // Trick progress: hop arc and a spin that eases through exactly 2 pi,
-  // so the landing frame matches the plain scroll pose with no snap.
-  const tu = (elapsed - trickStart) / TRICK_DUR;
+  // Trick progress: hop arc plus this trick's mix of spin, flip, and arch.
+  const tu = (elapsed - trickStart) / trick.dur;
   const air = tu > 0 && tu < 1 ? Math.sin(Math.PI * tu) : 0;
-  const spin = tu > 0 && tu < 1 ? trickDir * Math.PI * 2 * smoothstep(tu) : 0;
+  const prog = tu > 0 && tu < 1 ? smoothstep(tu) : 0;
+  const spin = trickDir * Math.PI * 2 * trick.spin * prog;
+  const flip = -Math.PI * 2 * trick.flip * prog; // negative pitch = backflip
   if (!trickBurst && tu >= 0.96) {
     trickBurst = true;
     sprayOrigin.set(s.x, s.y + 0.05, s.z);
@@ -178,16 +186,28 @@ function renderFrame(p, dt) {
   // Riding, the body pitches with the slope; once the stop settles he
   // straightens up toward gravity-vertical so the bib hangs level.
   const settle = smoothstep((s.ft - 0.7) / 0.3);
-  rider.group.position.set(s.x, s.y + 1.05 * air, s.z);
+  const pitch = SLOPE * (1 - 0.8 * settle) - trick.arch * air;
+  rider.group.position.set(s.x, s.y + trick.hop * air, s.z);
   rider.group.rotation.y = s.yaw + spin;
-  rider.group.rotation.x = SLOPE * (1 - 0.8 * settle);
+  rider.group.rotation.x = pitch + flip;
   rider.group.rotation.z = s.lean;
+  if (flip !== 0) {
+    // The group origin is at the board, so a raw pitch rotation would orbit
+    // the body around his feet. Offset the position so the flip pivots
+    // around the chest instead and the board sweeps overhead.
+    const h = 1.05; // approximate center of mass height, world units
+    const oy = h * (Math.cos(pitch) - Math.cos(pitch + flip));
+    const oz = h * (Math.sin(pitch) - Math.sin(pitch + flip));
+    rider.group.position.y += oy;
+    rider.group.position.x += oz * Math.sin(s.yaw + spin);
+    rider.group.position.z += oz * Math.cos(s.yaw + spin);
+  }
   rider.update({
     lean: s.lean,
     intensity: Math.max(s.intensity, 0.9 * air),
     time: elapsed,
     rest: settle,
-    grab: air,
+    grab: trick.grab * air,
   });
 
   trail.update(p);
@@ -304,11 +324,15 @@ function onPointerMove(e) {
 
 function onPointerDown(e) {
   if (e.target instanceof Element && e.target.closest('.panel, #bib, a, button')) return;
-  const tu = (elapsed - trickStart) / TRICK_DUR;
-  if (tu > 0 && tu < 1.3) return; // let the current trick land first
+  doodle.onPointerDown(e);
+  if (elapsed - trickStart < trick.dur * 1.35) return; // let the last one land
   const s = poseAt(lastP);
   if (s.ft > 0.35) return; // no spinning once the stop is underway
   if (!pointerOnRider(e.clientX, e.clientY)) return;
+  // Step to one of the other two tricks at random so repeat clicks always
+  // get some variety.
+  trickIdx = (trickIdx + 1 + Math.floor(Math.random() * 2)) % TRICKS.length;
+  trick = TRICKS[trickIdx];
   trickDir = s.lean >= 0 ? 1 : -1; // spin into the turn
   trickStart = elapsed;
   trickBurst = false;
@@ -325,6 +349,8 @@ function bootAnimated() {
 
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointerup', doodle.onPointerUp);
+  window.addEventListener('pointercancel', doodle.onPointerUp);
 
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.1);

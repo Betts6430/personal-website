@@ -43,9 +43,10 @@ Keep it that way.
   rider transform, spray emission (rate scales with scroll speed x carve
   intensity), finale camera dolly, projecting the rider's four bib corner
   anchors to screen space for `src/bib.js`, and the static-mode boot branch.
-  Also the pointer handlers: cursor doodles (doodle.js) and a click-the-
-  rider ollie 360, layered on the scroll pose as a pure function of time
-  since the click so it self-resolves to exactly one turn (no scroll state).
+  Also the pointer handlers: click-drag snow doodles (doodle.js) and the
+  click-the-rider tricks (ollie 360 grab, method air, backflip; random,
+  never twice in a row), layered on the scroll pose as a pure function of
+  time since the click so spins and flips resolve to exact full turns.
 - `src/bib.js` - warps the DOM contact card onto the projected jacket
   anchors with a matrix3d homography, so it foreshortens and sways with
   the torso plane like fabric pinned to the jacket. Race-bib styling
@@ -67,10 +68,11 @@ Keep it that way.
 - `src/trail.js` - full carve ribbon prebuilt from `poseAt`, revealed with
   `drawRange` so it un-draws on reverse scroll.
 - `src/spray.js` - fixed-pool ring-buffer particles.
-- `src/doodle.js` - cursor powder: the pointer is projected onto the snow
-  surface analytically; dragging it kicks up plumes (its own spray pool)
-  and draws a dotted carve line that fades in seconds. Everything is
-  transient and time-based, so the pure-function-of-p invariant holds.
+- `src/doodle.js` - snow doodles: while the mouse button is held, the
+  pointer is projected onto the snow surface analytically; dragging kicks
+  up plumes (its own spray pool) and draws a dotted carve line that fades
+  in seconds. Everything is transient and time-based, so the
+  pure-function-of-p invariant holds. Touch is ignored (drags scroll).
 - `src/sections.js` - panel opacity/slide from timeline ranges.
 
 Fallbacks: `prefers-reduced-motion` or WebGL failure adds
