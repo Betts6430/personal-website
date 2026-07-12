@@ -271,15 +271,13 @@ export function createBirds() {
     new THREE.Float32BufferAttribute([0.35, 0, 0, -0.25, 0, 0, 0.05, 0, 1], 3),
   );
 
-  // One loose trio heading right, a distant pair heading left; starting
-  // positions are spread through the view so the sky has life immediately.
+  // One loose trio, high above the ridgeline; starting positions sit in
+  // the view so the sky has life immediately.
   // [x0, y, z, speed, scale, flapRate, phase]
   const BIRDS = [
-    [-30, 38, -120, 6.0, 2.8, 7.0, 0],
-    [-46, 41, -128, 6.0, 2.4, 7.8, 1.7],
-    [-59, 36, -113, 6.0, 2.5, 7.4, 3.4],
-    [70, 47, -170, -5.2, 3.0, 6.2, 0.8],
-    [93, 44, -178, -5.2, 2.7, 6.8, 2.9],
+    [-28, 88, -160, 6.5, 3.2, 7.0, 0],
+    [-48, 93, -170, 6.5, 2.8, 7.6, 1.9],
+    [-63, 84, -152, 6.5, 2.9, 7.3, 3.6],
   ];
   const birds = BIRDS.map(([x0, y, z, speed, scale, flapRate, phase]) => {
     const b = new THREE.Group();
