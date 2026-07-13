@@ -306,8 +306,9 @@ export function createRider() {
    * 0..1 carve compression. time: seconds, for idle micro-motion. rest:
    * 0..1, relaxes the pose once the finale stop settles. grab: 0..1 mid-
    * trick reach, back hand toward the heel edge, front arm thrown up.
+   * wave: 0..1, back arm thrown overhead and wagging hello.
    */
-  function update({ lean, intensity, time, rest = 0, grab = 0 }) {
+  function update({ lean, intensity, time, rest = 0, grab = 0, wave = 0 }) {
     const idle = Math.sin(time * 1.6) * 0.015;
     const hipY = 0.98 - 0.24 * intensity + idle;
     const hipShift = -0.15 * lean;
@@ -359,6 +360,13 @@ export function createRider() {
       handB.lerp(grabTarget, grab);
       grabTarget.set(0.5, shY + 0.3, 0.55);
       handF.lerp(grabTarget, grab);
+    }
+    if (wave > 0) {
+      // Hello to whoever just lassoed him: back arm at full stretch
+      // overhead, hand wagging side to side.
+      grabDir.set(Math.sin(time * 9) * 0.55, 1, 0.18).normalize();
+      grabTarget.copy(shoulderB).addScaledVector(grabDir, ARM_UPPER + ARM_FORE - 0.02);
+      handB.lerp(grabTarget, wave);
     }
     solveJoint(elbowF, shoulderF, handF, ARM_UPPER, ARM_FORE, ELBOW_BEND_F);
     solveJoint(elbowB, shoulderB, handB, ARM_UPPER, ARM_FORE, ELBOW_BEND_B);

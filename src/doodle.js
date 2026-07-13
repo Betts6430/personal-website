@@ -20,7 +20,12 @@ const LIFT = 0.05; // sit just above the snow (and the carve trail)
 
 const TAN_SLOPE = Math.tan(SLOPE);
 
-export function createSnowDoodle(texture) {
+/**
+ * onStrokeEnd, if given, receives the finished drag's laid dot positions
+ * as a flat [{x, z}, ...] array in world space (main.js uses it to spot a
+ * lasso drawn around the rider).
+ */
+export function createSnowDoodle(texture, onStrokeEnd) {
   const group = new THREE.Group();
 
   const powder = createSpray(texture);
@@ -117,17 +122,21 @@ export function createSnowDoodle(texture) {
   let pointerMoved = false;
   let drawing = false;
   let head = 0;
+  let strokePts = [];
 
   function onPointerDown(e) {
     if (e.pointerType === 'touch') return; // touch drags are for scrolling
     drawing = true;
     hasPrev = false;
+    strokePts = [];
     onPointerMove(e);
   }
 
   function onPointerUp() {
     drawing = false;
     hasPrev = false;
+    if (onStrokeEnd && strokePts.length >= 12) onStrokeEnd(strokePts);
+    strokePts = [];
   }
 
   function onPointerMove(e) {
@@ -156,6 +165,7 @@ export function createSnowDoodle(texture) {
   }
 
   function addDot(x, z, dx, dz, time) {
+    if (strokePts.length < 4000) strokePts.push({ x, z });
     positions[head * 3] = x;
     positions[head * 3 + 1] = surfaceY(x, z) + LIFT;
     positions[head * 3 + 2] = z;

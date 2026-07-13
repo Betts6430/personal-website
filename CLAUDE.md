@@ -93,6 +93,16 @@ Keep it that way.
   pure-function-of-p invariant holds. Touch is ignored (drags scroll).
 - `src/sections.js` - panel opacity/slide from timeline ranges.
 
+Easter eggs (all transient click or timer reactions, so the scroll
+invariant holds and the scene is identical until someone finds them). A
+console greeting in main.js hints at all three: drawing a doodle loop
+around the rider makes him wave (world-space winding check in main.js
+`onStrokeEnd`, `wave` param in rider.js `update`); one pine in the left
+forest wears a slowly turning star (`createOddTree`) and dumps its snow
+in a spray whump when clicked, with a pointer cursor on hover; and a
+yeti (`createYeti`) steps out from behind a lone pine on the right flank
+`YETI_DELAY` seconds after load and every `YETI_PERIOD` after that.
+
 Fallbacks: `prefers-reduced-motion` or WebGL failure adds
 `body.static-mode` (see styles.css), which turns the site into a plainly
 scrolling document with one static rendered vista. When a renderer exists

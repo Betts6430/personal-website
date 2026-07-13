@@ -7,6 +7,7 @@ import {
   terrainBump,
   terrainNoise,
   mulberry32,
+  smoothstep,
 } from './world.js';
 
 // The static winter environment: bumpy snow slope, instanced pine forest,
@@ -604,4 +605,140 @@ export function createSparkles() {
   }
 
   return { points, update };
+}
+
+// --- Easter eggs -----------------------------------------------------------------
+// Hidden things for patient visitors. Both are pure functions of elapsed
+// time or plain click reactions, so the scroll invariant is untouched and
+// the scene looks identical until someone finds them.
+
+/** One stylized pine as plain meshes (the forest itself is instanced). */
+function buildLonePine(scale, tint) {
+  const pine = new THREE.Group();
+  for (const part of TREE_PARTS) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: part.color ?? TRUNK_COLOR,
+      flatShading: true,
+    });
+    if (part.color !== null && tint) mat.color.offsetHSL(0, 0, tint);
+    const mesh = new THREE.Mesh(part.geo(), mat);
+    mesh.position.y = part.y * scale;
+    mesh.scale.setScalar(scale);
+    mesh.castShadow = true;
+    pine.add(mesh);
+  }
+  return pine;
+}
+
+// A lone pine just clear of the forest edge, so the peek has an open
+// sightline (inside the strip the other trees hide it).
+const YETI_X = 26;
+const YETI_Z = -48;
+const YETI_PERIOD = 137; // seconds between peeks
+const YETI_DELAY = 49; // first peek this long after load
+
+/**
+ * A yeti who very occasionally leans out from behind a pine on the right
+ * flank, looks around, and ducks back. Blink and you miss him.
+ */
+export function createYeti() {
+  const group = new THREE.Group();
+
+  const pine = buildLonePine(1.35, 0.04);
+  pine.position.set(YETI_X, surfaceY(YETI_X, YETI_Z) - 0.3, YETI_Z);
+  group.add(pine);
+
+  // Icy blue-gray fur: pure white would vanish against the snow behind
+  // him, and the palette allows it (it matches the pine foliage tones).
+  const fur = new THREE.MeshStandardMaterial({ color: 0xb9d0e0, flatShading: true });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1d3547, flatShading: true });
+  const yeti = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.62, 1.5, 7), fur);
+  body.position.y = 0.78;
+  const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.44, 0), fur);
+  head.position.y = 1.78;
+  const face = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.12, 6), dark);
+  face.rotation.x = Math.PI / 2;
+  face.position.set(0, 1.82, 0.38);
+  const paw = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.56, 0.2), fur);
+  paw.position.set(0.56, 1.06, 0.12);
+  paw.rotation.z = -0.5;
+  yeti.add(body, head, face, paw);
+  yeti.castShadow = true;
+  const baseY = surfaceY(YETI_X, YETI_Z) - 0.15;
+  yeti.position.set(YETI_X, baseY, YETI_Z - 0.7); // tucked behind the trunk
+  yeti.visible = false;
+  group.add(yeti);
+
+  function update(time) {
+    const tc = (time + YETI_PERIOD - YETI_DELAY) % YETI_PERIOD;
+    if (tc > 5.4) {
+      yeti.visible = false;
+      return;
+    }
+    yeti.visible = true;
+    // Step out from behind the canopy (the lowest foliage cone is about
+    // two units wide, so a timid lean would never clear it), glance
+    // around, and duck back.
+    const out = smoothstep(tc / 0.9) * (1 - smoothstep((tc - 4.3) / 0.9));
+    yeti.position.x = YETI_X - 2.5 * out;
+    yeti.rotation.z = 0.14 * out;
+    yeti.rotation.y = 0.3 * Math.sin(time * 1.4) * out;
+  }
+
+  return { group, update };
+}
+
+const ODD_X = -36;
+const ODD_Z = -80;
+const ODD_SCALE = 1.6;
+
+/**
+ * The odd tree: one pine in the left forest wears a slowly turning star.
+ * Clicking it shakes the snow off in a powder whump; main.js does the
+ * raycast and the spray, this module owns the tree and the star's little
+ * celebration spin.
+ */
+export function createOddTree() {
+  const group = new THREE.Group();
+  const baseY = surfaceY(ODD_X, ODD_Z) - 0.3;
+
+  const pine = buildLonePine(ODD_SCALE, 0.06);
+  pine.position.set(ODD_X, baseY, ODD_Z);
+  group.add(pine);
+
+  const star = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.42, 0),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true }),
+  );
+  star.scale.y = 1.5;
+  const starY = baseY + (4.45 + 1.1) * ODD_SCALE;
+  star.position.set(ODD_X, starY, ODD_Z);
+  group.add(star);
+
+  let spinStart = -1e9;
+
+  function update(time) {
+    // A slow idle turn is the tell for observant visitors; a click adds a
+    // fast celebratory spin and a size pulse on top.
+    const u = (time - spinStart) / 1.6;
+    const burst = u > 0 && u < 1 ? smoothstep(u) : u >= 1 ? 1 : 0;
+    const pulse = u > 0 && u < 1 ? Math.sin(Math.PI * u) : 0;
+    star.rotation.y = time * 0.6 + burst * Math.PI * 6;
+    star.scale.setScalar(1 + 0.45 * pulse);
+    star.scale.y = 1.5 * (1 + 0.45 * pulse);
+  }
+
+  function trigger(time) {
+    spinStart = time;
+  }
+
+  // Canopy heights for the snow the click shakes loose.
+  const dumpPoints = [
+    new THREE.Vector3(ODD_X, baseY + 2.1 * ODD_SCALE, ODD_Z),
+    new THREE.Vector3(ODD_X, baseY + 3.3 * ODD_SCALE, ODD_Z),
+    new THREE.Vector3(ODD_X, baseY + 4.45 * ODD_SCALE, ODD_Z),
+  ];
+
+  return { group, update, trigger, dumpPoints };
 }

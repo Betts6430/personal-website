@@ -12,6 +12,8 @@ import {
   createChairlift,
   createSpindrift,
   createSparkles,
+  createYeti,
+  createOddTree,
   makeRoundTexture,
 } from './environment.js';
 import { createRider } from './rider.js';
@@ -114,6 +116,12 @@ scene.add(spindrift.points);
 const sparkles = createSparkles();
 scene.add(sparkles.points);
 
+const yeti = createYeti();
+scene.add(yeti.group);
+
+const oddTree = createOddTree();
+scene.add(oddTree.group);
+
 const rider = createRider();
 // Slightly heroic scale so he reads clearly even at the top of the run.
 rider.group.scale.setScalar(1.2);
@@ -125,7 +133,7 @@ scene.add(trail.mesh);
 const spray = createSpray(makeRoundTexture());
 scene.add(spray.points);
 
-const doodle = createSnowDoodle(makeRoundTexture());
+const doodle = createSnowDoodle(makeRoundTexture(), onStrokeEnd);
 scene.add(doodle.group);
 
 // --- Per-frame state --------------------------------------------------------------
@@ -156,6 +164,39 @@ let trickIdx = 0;
 let trickStart = -1e9;
 let trickBurst = true;
 let trickDir = 1;
+
+// Easter egg state: the lasso wave and the odd tree's snow dump.
+const WAVE_DUR = 1.9;
+let waveStart = -1e9;
+let dumpLast = -1e9;
+
+/**
+ * Net winding angle of a stroke around (cx, cz) in world XZ. A doodle
+ * lassoed around the rider accumulates a full turn even if the loop is
+ * sloppy or not quite closed.
+ */
+function windsAround(pts, cx, cz) {
+  let total = 0;
+  let prev = Math.atan2(pts[0].z - cz, pts[0].x - cx);
+  for (let i = 1; i < pts.length; i++) {
+    const a = Math.atan2(pts[i].z - cz, pts[i].x - cx);
+    let d = a - prev;
+    if (d > Math.PI) d -= Math.PI * 2;
+    else if (d < -Math.PI) d += Math.PI * 2;
+    total += d;
+    prev = a;
+  }
+  return Math.abs(total) > Math.PI * 1.75;
+}
+
+/** Finished doodle strokes: a loop around the rider earns a wave back. */
+function onStrokeEnd(pts) {
+  const s = poseAt(lastP);
+  if (s.ft > 0.5) return; // he is busy stopping for the bib
+  if (elapsed - trickStart < trick.dur * 1.35) return;
+  if (elapsed - waveStart < WAVE_DUR + 2) return;
+  if (windsAround(pts, s.x, s.z)) waveStart = elapsed;
+}
 
 const tangent = new THREE.Vector3();
 const lateral = new THREE.Vector3();
@@ -220,12 +261,14 @@ function renderFrame(p, dt) {
     rider.group.position.x += oz * Math.sin(s.yaw + spin);
     rider.group.position.z += oz * Math.cos(s.yaw + spin);
   }
+  const wu = (elapsed - waveStart) / WAVE_DUR;
   rider.update({
     lean: s.lean,
     intensity: Math.max(s.intensity, 0.9 * air),
     time: elapsed,
     rest: settle,
     grab: trick.grab * air,
+    wave: wu > 0 && wu < 1 ? Math.sin(Math.PI * wu) : 0,
   });
 
   trail.update(p, air > 0.05);
@@ -287,6 +330,8 @@ function renderFrame(p, dt) {
   chairlift.update(elapsed);
   spindrift.update(camera, elapsed);
   sparkles.update(camera, elapsed);
+  yeti.update(elapsed);
+  oddTree.update(elapsed);
   doodle.update(camera, elapsed, dt);
 
   // Contact bib: project the four jacket anchors and warp the card onto
@@ -330,21 +375,43 @@ function pointerOnRider(clientX, clientY) {
   return dx * dx + dy * dy < 48 * 48;
 }
 
+function pointerOnOddTree() {
+  // Reuses the ray pointerOnRider just cast for this event.
+  return pointerRay.intersectObject(oddTree.group, true).length > 0;
+}
+
 function onPointerMove(e) {
   doodle.onPointerMove(e);
   if (e.pointerType === 'touch') return;
   const overUi = e.target instanceof Element && e.target.closest('.panel, #bib, a, button');
   document.body.style.cursor =
-    !overUi && pointerOnRider(e.clientX, e.clientY) ? 'pointer' : '';
+    !overUi && (pointerOnRider(e.clientX, e.clientY) || pointerOnOddTree())
+      ? 'pointer'
+      : '';
 }
 
 function onPointerDown(e) {
   if (e.target instanceof Element && e.target.closest('.panel, #bib, a, button')) return;
   doodle.onPointerDown(e);
+  const hitRider = pointerOnRider(e.clientX, e.clientY);
+  if (!hitRider && pointerOnOddTree() && elapsed - dumpLast > 6) {
+    // The odd tree: shake its snow loose in a powder whump all around.
+    dumpLast = elapsed;
+    oddTree.trigger(elapsed);
+    for (const [i, p] of oddTree.dumpPoints.entries()) {
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * Math.PI * 2 + i;
+        sprayVel.set(Math.cos(a) * 1.4, -0.4 - 0.3 * i, Math.sin(a) * 1.4 + 0.5);
+        spray.emit(p, sprayVel, 4);
+      }
+    }
+    return;
+  }
   if (elapsed - trickStart < trick.dur * 1.35) return; // let the last one land
+  if (elapsed - waveStart < WAVE_DUR) return; // mid-wave, let him finish
   const s = poseAt(lastP);
   if (s.ft > 0.35) return; // no spinning once the stop is underway
-  if (!pointerOnRider(e.clientX, e.clientY)) return;
+  if (!hitRider) return;
   // Step to one of the other two tricks at random so repeat clicks always
   // get some variety.
   trickIdx = (trickIdx + 1 + Math.floor(Math.random() * 2)) % TRICKS.length;
@@ -355,6 +422,23 @@ function onPointerDown(e) {
 }
 
 // --- Boot: animated experience or static fallback ---------------------------------
+
+// A hello for whoever opens the console, with a nudge toward the secrets.
+console.log(
+  '%c' +
+    [
+      '      /\\        /\\',
+      '     /  \\  /\\  /  \\',
+      '    /    \\/  \\/    \\',
+      '   welcome to the hill',
+      '',
+      'Three secrets are buried in the snow:',
+      ' 1. The rider waves back at a well drawn circle.',
+      ' 2. One pine in the left forest wears a star.',
+      ' 3. Around the one minute mark, watch the right treeline.',
+    ].join('\n'),
+  'color:#4a7d9f',
+);
 
 let animated = false;
 
