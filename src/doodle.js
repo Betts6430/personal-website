@@ -20,7 +20,7 @@ const LIFT = 0.05; // sit just above the snow (and the carve trail)
 
 const TAN_SLOPE = Math.tan(SLOPE);
 
-export function createSnowDoodle(texture) {
+export function createSnowDoodle(texture, disturbTrail) {
   const group = new THREE.Group();
 
   const powder = createSpray(texture);
@@ -191,12 +191,15 @@ export function createSnowDoodle(texture) {
           } else if (dist >= STEP) {
             stroke.divideScalar(dist);
             const count = Math.floor(dist / STEP);
+            let carvedTrail = false;
             for (let k = 0; k < count; k++) {
               pen.addScaledVector(stroke, STEP);
               addDot(pen.x, pen.z, stroke.x, stroke.z, time);
+              // Dragging through the rider's carved track caves it in.
+              if (disturbTrail && disturbTrail(pen.x, pen.z)) carvedTrail = true;
             }
-            plumeVel.set(stroke.x * 1.7, 1.25, stroke.z * 1.7);
-            powder.emit(hit, plumeVel, Math.min(4, 1 + (count >> 2)));
+            plumeVel.set(stroke.x * 1.2, 0.95, stroke.z * 1.2);
+            powder.emit(hit, plumeVel, carvedTrail ? 4 : 1 + (count >> 4));
             geo.attributes.position.needsUpdate = true;
             geo.attributes.aBorn.needsUpdate = true;
             geo.attributes.aDir.needsUpdate = true;
