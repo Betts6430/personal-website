@@ -120,21 +120,6 @@ export function buildTrees() {
         tint: (rng() - 0.5) * 0.12,
       });
     }
-    // Low strip tight against the corridor near the camera, so the forest
-    // visibly continues down past the bottom of the run instead of
-    // stopping at the flank edge of the frustum.
-    for (let i = 0; i < 16; i++) {
-      const x = side * (16 + rng() * 15);
-      const z = -70 + rng() * 88;
-      placements.push({
-        x,
-        z,
-        y: surfaceY(x, z) - 0.3,
-        s: 0.7 + rng() * 0.9,
-        rot: rng() * Math.PI * 2,
-        tint: (rng() - 0.5) * 0.12,
-      });
-    }
   }
 
   const group = new THREE.Group();

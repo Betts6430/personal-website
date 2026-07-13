@@ -78,10 +78,7 @@ Keep it that way.
   deliberate stateful exception: rings revealed while the rider is mid-
   trick are sunk out of sight (no track where the board was airborne);
   un-drawing them on reverse scroll restores them, so the gap heals when
-  that stretch is ridden again. `disturb(x, z, radius)` collapses revealed
-  rings near a point through the same mechanism; doodle.js calls it so
-  dragging the cursor through the track caves it in, and reverse scroll
-  heals that damage too.
+  that stretch is ridden again.
 - `src/spray.js` - fixed-pool ring-buffer particles.
 - `src/doodle.js` - snow doodles: while the mouse button is held, the
   pointer is projected onto the snow surface analytically; dragging kicks

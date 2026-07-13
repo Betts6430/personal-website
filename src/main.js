@@ -125,7 +125,7 @@ scene.add(trail.mesh);
 const spray = createSpray(makeRoundTexture());
 scene.add(spray.points);
 
-const doodle = createSnowDoodle(makeRoundTexture(), (x, z) => trail.disturb(x, z, 0.6));
+const doodle = createSnowDoodle(makeRoundTexture());
 scene.add(doodle.group);
 
 // --- Per-frame state --------------------------------------------------------------

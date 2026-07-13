@@ -93,30 +93,6 @@ export function buildTrail() {
   }
 
   /**
-   * Collapse revealed rings near (x, z): dragging a glove through the
-   * groove caves its walls in. Uses the same sink-and-restore machinery
-   * as the trick air gaps, so reverse scroll heals the damage and riding
-   * the stretch again re-cuts the track. Returns true if fresh rings
-   * collapsed (the caller kicks up powder for those).
-   */
-  function disturb(x, z, radius) {
-    const r2 = radius * radius;
-    let collapsed = false;
-    for (let i = 1; i <= lastUpto; i++) {
-      const o = i * 9;
-      const dx = positions[o + 3] - x;
-      const dz = positions[o + 5] - z;
-      if (dx * dx + dz * dz > r2) continue;
-      if (positions[o + 4] !== baseY[i * 3 + 1] - SINK) {
-        setRingY(i, -SINK);
-        collapsed = true;
-      }
-    }
-    if (collapsed) geo.attributes.position.needsUpdate = true;
-    return collapsed;
-  }
-
-  /**
    * Reveal the track up to timeline value p. Rings that come into view
    * while the board is off the snow are sunk out of sight; un-drawing
    * them (reverse scroll) restores them for the next pass.
@@ -136,5 +112,5 @@ export function buildTrail() {
     geo.setDrawRange(0, upto * 12);
   }
 
-  return { mesh, update, disturb };
+  return { mesh, update };
 }
