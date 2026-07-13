@@ -119,7 +119,7 @@ scene.add(sparkles.points);
 const yeti = createYeti();
 scene.add(yeti.group);
 
-const oddTree = createOddTree();
+const oddTree = createOddTree(makeRoundTexture());
 scene.add(oddTree.group);
 
 const rider = createRider();
@@ -395,16 +395,9 @@ function onPointerDown(e) {
   doodle.onPointerDown(e);
   const hitRider = pointerOnRider(e.clientX, e.clientY);
   if (!hitRider && pointerOnOddTree() && elapsed - dumpLast > 6) {
-    // The odd tree: shake its snow loose in a powder whump all around.
+    // The odd tree: its snow load erupts (the burst lives in oddTree).
     dumpLast = elapsed;
     oddTree.trigger(elapsed);
-    for (const [i, p] of oddTree.dumpPoints.entries()) {
-      for (let k = 0; k < 4; k++) {
-        const a = (k / 4) * Math.PI * 2 + i;
-        sprayVel.set(Math.cos(a) * 1.4, -0.4 - 0.3 * i, Math.sin(a) * 1.4 + 0.5);
-        spray.emit(p, sprayVel, 4);
-      }
-    }
     return;
   }
   if (elapsed - trickStart < trick.dur * 1.35) return; // let the last one land

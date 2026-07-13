@@ -98,8 +98,10 @@ invariant holds and the scene is identical until someone finds them). A
 console greeting in main.js hints at all three: drawing a doodle loop
 around the rider makes him wave (world-space winding check in main.js
 `onStrokeEnd`, `wave` param in rider.js `update`); one pine in the left
-forest wears a slowly turning star (`createOddTree`) and dumps its snow
-in a spray whump when clicked, with a pointer cursor on hover; and a
+forest wears a slowly turning star (`createOddTree`) and erupts its
+whole snow load in a ballistic flake burst when clicked (pointer cursor
+on hover; the burst is its own particle pool, replayed as a pure
+function of time since the click); and a
 yeti (`createYeti`) steps out from behind a lone pine on the right flank
 `YETI_DELAY` seconds after load and every `YETI_PERIOD` after that.
 

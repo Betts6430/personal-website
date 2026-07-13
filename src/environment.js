@@ -699,7 +699,11 @@ const ODD_SCALE = 1.6;
  * raycast and the spray, this module owns the tree and the star's little
  * celebration spin.
  */
-export function createOddTree() {
+const BURST_COUNT = 300;
+const BURST_DUR = 2.6; // seconds from eruption to fully faded
+const BURST_G = 7; // flake gravity, world units per second squared
+
+export function createOddTree(texture) {
   const group = new THREE.Group();
   const baseY = surfaceY(ODD_X, ODD_Z) - 0.3;
 
@@ -716,29 +720,76 @@ export function createOddTree() {
   star.position.set(ODD_X, starY, ODD_Z);
   group.add(star);
 
+  // The payoff: the whole snow load erupts off the canopy. Flake origins
+  // and velocities are baked once (seeded), and every frame just replays
+  // the ballistic arc from the click time, so the burst is a pure
+  // function of time since the trigger. Flakes land on the snow and rest
+  // there while the cloud fades.
+  const rngB = mulberry32(555);
+  const origins = new Float32Array(BURST_COUNT * 3);
+  const vels = new Float32Array(BURST_COUNT * 3);
+  const bpos = new Float32Array(BURST_COUNT * 3);
+  for (let i = 0; i < BURST_COUNT; i++) {
+    const h = (0.9 + rngB() * 4.7) * ODD_SCALE; // height on the canopy
+    const taper = Math.max(0.25, 1.55 * (1 - h / (5.9 * ODD_SCALE)));
+    const r = taper * ODD_SCALE * (0.6 + rngB() * 0.55);
+    const a = rngB() * Math.PI * 2;
+    origins[i * 3] = ODD_X + Math.cos(a) * r;
+    origins[i * 3 + 1] = baseY + h;
+    origins[i * 3 + 2] = ODD_Z + Math.sin(a) * r;
+    const sp = (2.6 + rngB() * 4.2) * (0.55 + taper * 0.45); // wider low down
+    vels[i * 3] = Math.cos(a) * sp;
+    vels[i * 3 + 1] = 1.2 + rngB() * 2.8;
+    vels[i * 3 + 2] = Math.sin(a) * sp;
+  }
+  const burstGeo = new THREE.BufferGeometry();
+  burstGeo.setAttribute('position', new THREE.BufferAttribute(bpos, 3));
+  const burstMat = new THREE.PointsMaterial({
+    size: 0.85,
+    map: texture,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  const burst = new THREE.Points(burstGeo, burstMat);
+  burst.visible = false;
+  burst.frustumCulled = false;
+  group.add(burst);
+
   let spinStart = -1e9;
 
   function update(time) {
     // A slow idle turn is the tell for observant visitors; a click adds a
     // fast celebratory spin and a size pulse on top.
-    const u = (time - spinStart) / 1.6;
-    const burst = u > 0 && u < 1 ? smoothstep(u) : u >= 1 ? 1 : 0;
-    const pulse = u > 0 && u < 1 ? Math.sin(Math.PI * u) : 0;
-    star.rotation.y = time * 0.6 + burst * Math.PI * 6;
+    const su = (time - spinStart) / 1.6;
+    const whirl = su > 0 && su < 1 ? smoothstep(su) : su >= 1 ? 1 : 0;
+    const pulse = su > 0 && su < 1 ? Math.sin(Math.PI * su) : 0;
+    star.rotation.y = time * 0.6 + whirl * Math.PI * 6;
     star.scale.setScalar(1 + 0.45 * pulse);
     star.scale.y = 1.5 * (1 + 0.45 * pulse);
+
+    const u = time - spinStart;
+    if (u > 0 && u < BURST_DUR) {
+      burst.visible = true;
+      for (let i = 0; i < BURST_COUNT; i++) {
+        const x = origins[i * 3] + vels[i * 3] * u;
+        const z = origins[i * 3 + 2] + vels[i * 3 + 2] * u;
+        const y = origins[i * 3 + 1] + vels[i * 3 + 1] * u - 0.5 * BURST_G * u * u;
+        bpos[i * 3] = x;
+        bpos[i * 3 + 1] = Math.max(y, surfaceY(x, z) + 0.06); // settle on snow
+        bpos[i * 3 + 2] = z;
+      }
+      burstGeo.attributes.position.needsUpdate = true;
+      burstMat.opacity =
+        u < 0.12 ? u / 0.12 : 1 - smoothstep((u - 1.2) / (BURST_DUR - 1.2));
+    } else if (burst.visible) {
+      burst.visible = false;
+    }
   }
 
   function trigger(time) {
     spinStart = time;
   }
 
-  // Canopy heights for the snow the click shakes loose.
-  const dumpPoints = [
-    new THREE.Vector3(ODD_X, baseY + 2.1 * ODD_SCALE, ODD_Z),
-    new THREE.Vector3(ODD_X, baseY + 3.3 * ODD_SCALE, ODD_Z),
-    new THREE.Vector3(ODD_X, baseY + 4.45 * ODD_SCALE, ODD_Z),
-  ];
-
-  return { group, update, trigger, dumpPoints };
+  return { group, update, trigger };
 }
