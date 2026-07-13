@@ -15,6 +15,7 @@ const DOT_LIFE = 4.5; // seconds a line dot stays visible
 const STEP = 0.12; // world units between dots; dots are 3x wider, so they
 // overlap into a continuous groove instead of a bead chain
 const MAX_RANGE = 250; // ignore hits out past the fog
+const MAX_SEG = 28; // longest single-frame pen jump that still draws
 const LIFT = 0.05; // sit just above the snow (and the carve trail)
 
 const TAN_SLOPE = Math.tan(SLOPE);
@@ -27,17 +28,20 @@ export function createSnowDoodle(texture) {
 
   const positions = new Float32Array(MAX_DOTS * 3);
   const born = new Float32Array(MAX_DOTS).fill(-1e9);
+  const dirs = new Float32Array(MAX_DOTS * 2); // stroke direction per dot
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('aBorn', new THREE.BufferAttribute(born, 1));
+  geo.setAttribute('aDir', new THREE.BufferAttribute(dirs, 2));
 
   const uniforms = {
     uTime: { value: 0 },
     uLife: { value: DOT_LIFE },
     uScale: { value: 1 },
-    // Trough shade and lip light, matching the rider's carved trail.
-    uDark: { value: new THREE.Color(0xaecadd) },
-    uLight: { value: new THREE.Color(0xf6fbff) },
+    uPx: { value: 1 }, // device pixels per NDC unit (viewport height / 2)
+    // Shadow wall tint and highlight wall light, matching the carved trail.
+    uDark: { value: new THREE.Color(0xa3c2d8) },
+    uLight: { value: new THREE.Color(0xffffff) },
   };
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -45,31 +49,55 @@ export function createSnowDoodle(texture) {
     depthWrite: false,
     vertexShader: /* glsl */ `
       attribute float aBorn;
-      uniform float uTime, uLife, uScale;
+      attribute vec2 aDir;
+      uniform float uTime, uLife, uScale, uPx;
       varying float vFade;
+      varying vec2 vDir;
       void main() {
         float age = uTime - aBorn;
         vFade = 1.0 - clamp(age / uLife, 0.0, 1.0);
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         // Fade toward the fog so far dots do not stay unnaturally crisp.
         vFade *= 1.0 - smoothstep(180.0, 250.0, -mv.z);
-        gl_PointSize = 0.36 * uScale / -mv.z;
-        gl_Position = projectionMatrix * mv;
+        gl_PointSize = 0.4 * uScale / -mv.z;
+        vec4 clip = projectionMatrix * mv;
+        // Project the stroke direction to screen space so the fragment
+        // shader can shade across the groove, not per dot.
+        vec4 clip2 = projectionMatrix *
+          (modelViewMatrix * vec4(position + vec3(aDir.x, 0.0, aDir.y) * 0.5, 1.0));
+        vec2 sd = clip2.xy / max(clip2.w, 1e-4) - clip.xy / max(clip.w, 1e-4);
+        sd.y = -sd.y; // gl_PointCoord's y axis runs down the screen
+        vDir = normalize(sd + vec2(1e-5, 0.0));
+        // Strokes receding up the run pack many dots into few pixels
+        // (screen spacing falls off faster than point size), which would
+        // stack translucent dots into a saturated stripe. Scale alpha by
+        // the on-screen dot density so the accumulated opacity stays the
+        // same in every stroke direction.
+        float spacingPx = length(sd) * ${(STEP / 0.5).toFixed(4)} * uPx;
+        vFade *= clamp(3.0 * spacingPx / max(gl_PointSize, 1.0), 0.0, 1.0);
+        gl_Position = clip;
       }
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uDark;
       uniform vec3 uLight;
       varying float vFade;
+      varying vec2 vDir;
       void main() {
         vec2 d = gl_PointCoord - 0.5;
-        float mask = smoothstep(0.5, 0.34, length(d));
-        // Fake an indentation: the scene sun sits screen upper-right, so
-        // inside a depression the upper-right wall falls into shade and
-        // the lower-left wall catches light (gl_PointCoord y runs down).
-        float shade = clamp(0.5 + 1.8 * dot(d, vec2(0.707, -0.707)), 0.0, 1.0);
-        vec3 col = mix(uLight, uDark, shade);
-        float a = mask * vFade * 0.42;
+        float mask = smoothstep(0.5, 0.3, length(d));
+        // A pressed groove reads as two thin ribbons along the stroke:
+        // the wall on the sun side (screen upper-right) falls into shade
+        // and the far wall catches the light. Everything else stays
+        // transparent, so overlapping dots fuse into one crisp cut and
+        // can never stack into a solid painted stripe.
+        vec2 across = vec2(-vDir.y, vDir.x);
+        across *= sign(dot(across, vec2(0.707, -0.707)) + 1e-4);
+        float t = dot(d, across); // signed distance, + toward the sun
+        float dark = smoothstep(0.02, 0.14, t) * (1.0 - smoothstep(0.2, 0.36, t));
+        float light = smoothstep(0.02, 0.14, -t) * (1.0 - smoothstep(0.2, 0.36, -t));
+        vec3 col = mix(uLight, uDark, dark);
+        float a = mask * vFade * (0.34 * dark + 0.3 * light);
         if (a < 0.01) discard;
         gl_FragColor = vec4(col, a);
       }
@@ -127,10 +155,12 @@ export function createSnowDoodle(texture) {
     return true;
   }
 
-  function addDot(x, z, time) {
+  function addDot(x, z, dx, dz, time) {
     positions[head * 3] = x;
     positions[head * 3 + 1] = surfaceY(x, z) + LIFT;
     positions[head * 3 + 2] = z;
+    dirs[head * 2] = dx;
+    dirs[head * 2 + 1] = dz;
     born[head] = time;
     head = (head + 1) % MAX_DOTS;
   }
@@ -140,6 +170,7 @@ export function createSnowDoodle(texture) {
     uniforms.uScale.value =
       (window.innerHeight * Math.min(window.devicePixelRatio, 2)) /
       (2 * Math.tan((camera.fov * Math.PI) / 360));
+    uniforms.uPx.value = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / 2;
 
     if (pointerMoved) {
       pointerMoved = false;
@@ -153,19 +184,22 @@ export function createSnowDoodle(texture) {
           // stays uniform no matter how the pointer moves.
           stroke.subVectors(hit, pen);
           const dist = stroke.length();
-          if (dist >= STEP) {
+          if (dist > MAX_SEG) {
+            // A flick toward the horizon covers huge world distance in
+            // one frame; restart there instead of laying a bead chain.
+            pen.copy(hit);
+          } else if (dist >= STEP) {
             stroke.divideScalar(dist);
-            const n = Math.floor(dist / STEP);
-            const count = Math.min(240, n);
-            const step = n > count ? dist / count : STEP;
+            const count = Math.floor(dist / STEP);
             for (let k = 0; k < count; k++) {
-              pen.addScaledVector(stroke, step);
-              addDot(pen.x, pen.z, time);
+              pen.addScaledVector(stroke, STEP);
+              addDot(pen.x, pen.z, stroke.x, stroke.z, time);
             }
             plumeVel.set(stroke.x * 1.7, 1.25, stroke.z * 1.7);
             powder.emit(hit, plumeVel, Math.min(4, 1 + (count >> 2)));
             geo.attributes.position.needsUpdate = true;
             geo.attributes.aBorn.needsUpdate = true;
+            geo.attributes.aDir.needsUpdate = true;
           }
         }
       } else {

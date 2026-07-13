@@ -83,8 +83,13 @@ Keep it that way.
 - `src/doodle.js` - snow doodles: while the mouse button is held, the
   pointer is projected onto the snow surface analytically; dragging kicks
   up plumes (its own spray pool) and presses an embossed carve line into
-  the snow (uniform pen-stepped sprites shaded to match the sun) that
-  fades in seconds. Everything is transient and time-based, so the
+  the snow that fades in seconds. Each pen-stepped sprite knows its stroke
+  direction: the shader projects it to screen space and draws a shadow
+  ribbon on the sun side and a highlight ribbon opposite, so overlapping
+  dots fuse into one groove that reads as pressed into the snow. Dot alpha
+  is normalized by on-screen dot density (receding strokes pack dots into
+  few pixels and would otherwise saturate), and single-frame pen jumps
+  past MAX_SEG restart the stroke instead of laying sparse beads. Everything is transient and time-based, so the
   pure-function-of-p invariant holds. Touch is ignored (drags scroll).
 - `src/sections.js` - panel opacity/slide from timeline ranges.
 
