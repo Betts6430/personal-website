@@ -34,9 +34,11 @@ export const CAM_LOOK = { x: 0, y: 5.8, z: 0 };
 // in the depth (Z) direction.
 export const ROAD_Z = -38;
 export const ROAD_HALF_W = 4.5;
-// Arthur rides a nearer, parallel track so perspective makes him larger,
-// leading out ahead of the mass.
-export const ARTHUR_Z = -14;
+// Arthur rides the same road as the host (just a hair forward of centre so he
+// reads a touch larger), leading out ahead of the mass by a clear gap in X. He
+// is scaled up in makeArthur rather than pulled onto a separate nearer lane, so
+// he no longer looks like he is marching a different path from the column.
+export const ARTHUR_Z = -35;
 
 // --- Camelot (fixed background city, right side) -----------------------------
 // Far down-frame and offset to +X so the skyline renders in the right third,
@@ -63,8 +65,16 @@ export const X_TRIG = 23;
 
 // The eased-p at which each project's flag-cart crosses X_TRIG, evenly spaced
 // through the scroll (Arthur leads the stretch before the first). Each
-// project's panel is up from its own cross until the next one's.
-export const PROJECT_CROSS = [0.15, 0.29, 0.43, 0.57, 0.71, 0.85];
+// project's panel is up from its own cross until the next one's. The last
+// crosses at 0.73 so its card can fade fully out (~0.85) before the scroll ends
+// on the trailing signs, leaving no half-faded card at p = 1.
+export const PROJECT_CROSS = [0.13, 0.25, 0.37, 0.49, 0.61, 0.73];
+
+// Two waysign-carts trail the whole host and cross X_TRIG near the very end, so
+// the march finishes on them: a "Home" sign back to the mountain and a
+// "Timeline" sign to the timeline scene. They carry no project card; they are
+// the diegetic navigation out of this scene.
+export const SIGN_CROSS = [0.9, 0.96];
 
 export function smoothstep(t) {
   const c = Math.min(1, Math.max(0, t));

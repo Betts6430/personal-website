@@ -8,6 +8,7 @@ import {
   TRAVEL,
   X_TRIG,
   PROJECT_CROSS,
+  SIGN_CROSS,
 } from './world.js';
 import { PROJECTS } from './projects.js';
 
@@ -248,6 +249,77 @@ function makeCart(rng, flagColor) {
   return { group: g, anim, ph: 0 };
 }
 
+// --- Waysign cart (trailing "Home" / "Timeline" signposts) ------------------
+// A supply cart carrying a big wooden signboard on two posts. The board's face
+// is a canvas texture (a carved plank), fog-exempt so the lettering stays crisp
+// and readable; the whole board is clickable (raycast in main.js) to leave for
+// that scene. These trail the host and cross late, so the scroll ends on them.
+
+function makeSignTexture(label) {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#caa25c'; // sun-warmed plank
+  ctx.fillRect(0, 0, 512, 256);
+  ctx.strokeStyle = '#3f2a12';
+  ctx.lineWidth = 16;
+  ctx.strokeRect(12, 12, 488, 232);
+  ctx.fillStyle = '#2f1e0c';
+  ctx.font = 'bold 118px Georgia, "Times New Roman", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, 256, 140);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function makeSignCart(rng, label) {
+  const g = new THREE.Group();
+
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 0.75), MAT_DARK);
+  bed.position.y = 0.95;
+  bed.castShadow = true;
+  g.add(bed);
+
+  const wheels = [];
+  for (const wx of [0.6, -0.6]) {
+    for (const wz of [0.44, -0.44]) {
+      const w = new THREE.Mesh(WHEEL_GEO, MAT_DARK);
+      w.position.set(wx, 0.42, wz);
+      w.castShadow = true;
+      g.add(w);
+      wheels.push(w);
+    }
+  }
+
+  const horse = makeHorse(rng, false);
+  horse.group.position.set(-1.9, 0, 0);
+  g.add(horse.group);
+
+  const BOARD_Y = 5.0;
+  for (const px of [-1.0, 1.0]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 4.8, 6), MAT_DARK);
+    post.position.set(px, 1.0 + 2.4, 0);
+    post.castShadow = true;
+    g.add(post);
+  }
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry(5.0, 2.4),
+    new THREE.MeshBasicMaterial({ map: makeSignTexture(label), side: THREE.DoubleSide, fog: false }),
+  );
+  board.position.set(0, BOARD_Y, 0.14);
+  g.add(board);
+
+  function anim(worldX) {
+    const spin = worldX / 0.42;
+    for (const w of wheels) w.rotation.z = spin;
+    horse.anim(worldX);
+  }
+  return { group: g, anim, ph: 0, board };
+}
+
 // --- King Arthur ------------------------------------------------------------
 
 function makeArthur(rng) {
@@ -278,10 +350,37 @@ function makeArthur(rng) {
   cape.position.set(0.34, 1.75, 0);
   cape.rotation.y = Math.PI / 2;
 
-  g.add(torso, head, crown, arm, guard, blade, cape);
-  g.scale.setScalar(1.12);
+  // A glint sprite at the blade tip, flared briefly when Arthur is clicked: a
+  // soft radial core with a cross streak, not a flat quad.
+  const glintMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uOpacity: { value: 0 }, uColor: { value: new THREE.Color(0xfff2d0) } },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uOpacity; uniform vec3 uColor; varying vec2 vUv;
+      void main() {
+        vec2 d = vUv - 0.5;
+        float r = length(d);
+        float core = smoothstep(0.5, 0.0, r);
+        float streak = smoothstep(0.035, 0.0, abs(d.x)) + smoothstep(0.035, 0.0, abs(d.y));
+        float a = (core * core + streak * core * 0.6) * uOpacity;
+        gl_FragColor = vec4(uColor, a);
+      }
+    `,
+  });
+  const glint = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), glintMat);
+  glint.position.set(-0.42, 4.45, 0.12);
+  g.add(torso, head, crown, arm, guard, blade, cape, glint);
+  // Scaled up so he still leads large now that he shares the host's road depth.
+  g.scale.setScalar(1.5);
 
-  return { group: g, anim: horse.anim, ph: horse.ph };
+  return { group: g, anim: horse.anim, ph: horse.ph, glint };
 }
 
 // --- The whole column -------------------------------------------------------
@@ -312,14 +411,36 @@ export function createColumn() {
 
   // Arthur leads out front on the nearer track (bigger via perspective), with
   // a clear gap of open road behind him before the host.
-  place(makeArthur(rng), 16, ARTHUR_Z);
+  const arthur = makeArthur(rng);
+  place(arthur, 16, ARTHUR_Z);
+
+  // Two waysign-carts bringing up the rear: Home (back to the mountain) and
+  // Timeline. Placed so each crosses X_TRIG at its SIGN_CROSS p, they are the
+  // last units the march presents. Their boards are exposed for click routing.
+  const signDefs = [
+    { label: 'Home', href: 'index.html', cross: SIGN_CROSS[0] },
+    { label: 'Timeline', href: 'timeline.html', cross: SIGN_CROSS[1] },
+  ];
+  const signs = [];
+  for (const sd of signDefs) {
+    const cart = makeSignCart(rng, sd.label);
+    const x0 = X_TRIG + TRAVEL * sd.cross;
+    cartXs.push(x0);
+    place(cart, x0, ROAD_Z + 0.4);
+    signs.push({ mesh: cart.board, href: sd.href });
+  }
 
   // A few cavalry and supply carts scattered through the host for variety,
-  // avoiding the banner-cart slots.
+  // avoiding the banner-cart and sign-cart slots.
   for (let x = 46; x < 340; x += 10 + rng() * 12) {
     if (cartXs.some((cx) => Math.abs(cx - x) < 4)) continue;
     const unit = rng() < 0.6 ? makeHorse(rng, true) : makeCart(rng, null);
     place(unit, x, ROAD_Z + (rng() * 2 - 1) * 3.4);
+  }
+
+  let glintTime = -999;
+  function glint(t) {
+    glintTime = t;
   }
 
   function update(p, time) {
@@ -336,7 +457,18 @@ export function createColumn() {
       u.group.position.set(x, y, u.z);
       u.anim(x, time);
     }
+
+    // Excalibur glint: a brief flare on the blade after Arthur is clicked, a
+    // pure function of time since the click so it resolves cleanly every time.
+    const gd = time - glintTime;
+    if (gd >= 0 && gd < 0.85) {
+      const k = Math.sin((gd / 0.85) * Math.PI);
+      arthur.glint.material.uniforms.uOpacity.value = k;
+      arthur.glint.scale.setScalar(0.6 + k * 1.1);
+    } else {
+      arthur.glint.material.uniforms.uOpacity.value = 0;
+    }
   }
 
-  return { group, update };
+  return { group, update, arthur: arthur.group, glint, signs };
 }

@@ -16,7 +16,11 @@ portfolio content. Scrolling never moves a page; it drives the scene.
   raised; six banner-carts in distinct heraldic colors ride in the host,
   and as each crosses a fixed screen line it brings up that project's card
   in the open sky on the left. No project is crowned "best": the army just
-  keeps marching. (Replaced an earlier Hall of Legends concept.)
+  keeps marching. Two waysign-carts (Home, Timeline) bring up the rear, so
+  the scroll ends on the diegetic links out to the other scenes. The empty
+  air is filled with an always-moving "life" layer (dust, smoke, gulls,
+  drifting clouds, a periodic dragon) and click easter eggs (see below).
+  (Replaced an earlier Hall of Legends concept.)
 
 Scrolling up rewinds everything, on every page.
 
@@ -151,32 +155,52 @@ the sky.
 - `src/caravan/world.js` - layout and math: the fixed-camera constants
   (`CAM`, `CAM_FOV`, `CAM_LOOK`, pitched up ~FOV/6 so the horizon sits ~1/3
   up the frame), `ROAD_Z` (the army's depth, set well back so it reads as a
-  distant host), `ARTHUR_Z` (a nearer track so Arthur leads larger),
-  `CAMELOT` and `SUN_DIR`, ground-height noise, seeded RNG, and the
-  procession constants: `TRAVEL` (how far the column shifts over the
-  scroll), `X_TRIG` (world X of the content trigger, ~25% in from the
-  right), and `PROJECT_CROSS` (the eased-p at which each banner crosses it).
+  distant host), `ARTHUR_Z` (Arthur rides the host's own road, scaled up in
+  makeArthur rather than pulled onto a nearer lane, so he does not look like
+  he marches a different path), `CAMELOT` and `SUN_DIR`, ground-height noise,
+  seeded RNG, and the procession constants: `TRAVEL` (how far the column
+  shifts over the scroll), `X_TRIG` (world X of the content trigger, ~25% in
+  from the right), `PROJECT_CROSS` (the eased-p at which each banner crosses
+  it), and `SIGN_CROSS` (the two trailing waysign crossings, near the end).
 - `src/caravan/environment.js` - the static landscape, all flat colors: a
-  rolling ground plane with a flat road corridor, a flat dirt road, two
-  warm-brown ridge silhouettes, `buildCity` (a whole medieval skyline baked
-  to two merged meshes, bodies + roofs, vertex-colored), `createSun` (a
-  fog-exempt disc low by the city), and `createSky` (the gradient dome: a
-  shader on a BackSide sphere centered on the camera, amber horizon
-  deepening upward, warm glow toward the sun). `SKY_HORIZON` is exported
-  for the fog color.
+  rolling ground plane with a flat road corridor, a flat dirt road, two low
+  warm-brown ridge silhouettes (`buildHills`), `buildMountains` (two tall
+  ranges set well behind the city for aerial depth; the fog lightens them),
+  `buildGrass` (a dense near-camera fringe of tapered blades, GPU wind sway,
+  colored just under the ground so it reads as texture), `buildDeadTree` (a
+  recursive gnarled bare tree framing the left foreground), `buildCity` (a
+  whole medieval skyline baked to two merged meshes, bodies + roofs,
+  vertex-colored, lifted so it clears the hills, crowned with silhouette
+  pennants via `createPennants` which also carries the bell-toll bloom),
+  `createSun`, and `createSky` (the gradient dome). `SKY_HORIZON` is exported
+  for the fog color. NOTE `buildRidge` strips are DoubleSide (their front
+  faces point away from the camera).
 - `src/caravan/column.js` - the procession. The bulk is an INSTANCED crowd
   (`makeCrowd`): one merged pike-soldier silhouette instanced ~180 times
   (the row of pikes reads as a host) in one draw call. Featured units are
   individual groups: cavalry (`makeHorse`), supply and banner carts
-  (`makeCart`), and `makeArthur` (mounted, gold crown + bright Excalibur +
-  cape, scaled up, on the nearer track). The whole column advances with the
-  scroll, `worldX(unit) = x0 - TRAVEL * p`, a pure function of p, so reverse
-  scroll rewinds it and each banner crosses `X_TRIG` at a deterministic p.
-  The gait (legs, wheels, body bob) is driven by distance travelled
-  (`worldX * STRIDE_K`), NOT elapsed time, so it freezes when the scroll is
-  held; only the flags flutter on time (wind). Banner-carts fly a flat,
-  unlit flag in each project's `flag` color so the cue stays vivid against
-  the silhouettes.
+  (`makeCart`), `makeArthur` (mounted, gold crown + bright Excalibur + cape;
+  clicking him flares a glint off the blade), and two `makeSignCart`
+  waysigns (Home, Timeline) at the rear, each carrying a big board whose face
+  is a CanvasTexture carved plank (fog-exempt so the lettering stays crisp);
+  the boards are exposed as `column.signs` for click routing. The whole
+  column advances with the scroll, `worldX(unit) = x0 - TRAVEL * p`, a pure
+  function of p, so reverse scroll rewinds it and each banner/sign crosses
+  `X_TRIG` at a deterministic p. The gait (legs, wheels, body bob) is driven
+  by distance travelled (`worldX * STRIDE_K`), NOT elapsed time, so it
+  freezes when the scroll is held; only the flags flutter on time (wind).
+  Banner-carts fly a flat, unlit flag in each project's `flag` color so the
+  cue stays vivid; Camelot's pennants, by contrast, are dark silhouettes.
+- `src/caravan/ambient.js` - the always-moving "life" layer, every element a
+  pure function of elapsed time (like the mountain's snow), so holding the
+  scroll never freezes it: `createMotes` (GPU warm dust drifting in the air),
+  `createSmoke` (GPU plumes off the campfire and Camelot's chimneys),
+  `createFire` (the roadside campfire flame, on logs at ground level),
+  `createBirds` (gulls reusing the mountain's design, wings spanning +Z,
+  beating about X), `createClouds` (three drifting flat streaks, max ~3 on
+  screen), `createDragon` (a wyvern silhouette on a periodic flyby, like the
+  mountain's yeti), and `createRoost` (a flock hidden on the towers that
+  bursts off when the bell tolls).
 - `src/caravan/projects.js` - the six real projects as data (title, blurb,
   bullets, stack, links, tag, and a heraldic `flag` color). Single source
   of truth for both the banner colors and the cards (the content preserved
@@ -192,8 +216,15 @@ the sky.
 - `src/caravan/main.js` - renderer, the fixed camera (set once and on
   resize), a warm dim hemisphere fill plus a low warm directional backlight
   (rims the silhouettes and throws long shadows toward the camera), the
-  frame loop (subtle sunrise shift, `column.update(p, elapsed)`), and the
-  static-mode fallback (mirrors the mountain, `#play-tour`).
+  frame loop (subtle sunrise shift, all the ambient `.update(elapsed)` calls,
+  `column.update(p, elapsed)`), and the static-mode fallback (mirrors the
+  mountain, `#play-tour`). Also the pointer handlers (a raycaster): a click
+  routes to a waysign's href, else flares Arthur's glint, else tolls the
+  Camelot bell (pennants whip via an `excite` factor decayed here, the roost
+  bursts off the towers, and a warm bloom peals from the tallest tower);
+  pointermove sets a pointer cursor over anything clickable. All click
+  reactions are transient time-since-click, so the pure-function-of-p world
+  is untouched.
 
 Pace: march speed is the `#scroll-space` height (taller = slower per-scroll)
 and is decoupled from banner spacing (which is `TRAVEL`), so the

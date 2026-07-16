@@ -18,7 +18,10 @@ export function buildProjectPanels() {
 
   PROJECTS.forEach((proj, i) => {
     const start = PROJECT_CROSS[i];
-    const end = PROJECT_CROSS[i + 1] ?? 1.01;
+    // The last card has no next crossing: give it a window like the others and
+    // let it fade fully out (well before the trailing signs), so the scroll
+    // never ends on a half-faded card.
+    const end = PROJECT_CROSS[i + 1] ?? start + 0.12;
 
     const tag = proj.tag ? ` <span class="tag">${esc(proj.tag)}</span>` : '';
     const bullets = proj.bullets && proj.bullets.length
@@ -37,12 +40,12 @@ export function buildProjectPanels() {
     sec.dataset.start = String(start);
     sec.dataset.end = String(end);
     sec.innerHTML = `
-      <figure><div class="media-slot">Photos &amp; demo coming</div></figure>
       <p class="kicker"><span class="flagchip" style="background:${proj.flag}"></span>Project ${String(
         i + 1,
       ).padStart(2, '0')}</p>
       <h2>${esc(proj.title)}${tag}</h2>
       <p class="blurb">${esc(proj.blurb)}</p>
+      <figure><div class="media-slot">Photos &amp; demo coming</div></figure>
       ${bullets}
       <p class="stack">${esc(proj.stack)}</p>
       ${linksNav}
