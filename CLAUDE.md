@@ -1,11 +1,24 @@
 # CLAUDE.md
 
-Personal portfolio site for Avery Bettesworth. Scrolling does not move the
-page; it drives a low-poly snowboarder carving down a ski hill toward a
-fixed camera (Three.js). Content panels fade in along the descent; the
-last carve swoops across the frame and ends in a hockey stop at 100%
-scroll, leaving the rider with his back to the lens and a contact bib
-pinned to his jacket. Scrolling up rewinds everything.
+Personal portfolio site for Avery Bettesworth, built as a set of scenes,
+one per page, each themed on one of his interests and each carrying real
+portfolio content. Scrolling never moves a page; it drives the scene.
+
+- `index.html`, the mountain: a low-poly snowboarder carving down a ski
+  hill toward a fixed camera (Three.js). Content panels fade in along the
+  descent; the last carve ends in a hockey stop at 100% scroll, leaving
+  the rider with his back to the lens and a contact bib pinned to his
+  jacket. The user considers this scene finished; do not add to it
+  (planned exception: pop-up trail signs linking to the other scenes).
+- `projects.html`, the caravan: a fixed side-on view of an Arthurian army
+  marching right-to-left across a warm sunrise plain, the city of Camelot
+  in silhouette on the right. King Arthur leads out front with Excalibur
+  raised; six banner-carts in distinct heraldic colors ride in the host,
+  and as each crosses a fixed screen line it brings up that project's card
+  in the open sky on the left. No project is crowned "best": the army just
+  keeps marching. (Replaced an earlier Hall of Legends concept.)
+
+Scrolling up rewinds everything, on every page.
 
 ## Commands
 
@@ -23,16 +36,22 @@ export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
 
 ## Architecture
 
-The core invariant: every visual is a pure function of the eased scroll
-fraction p in [0, 1]. No accumulated state depends on scroll history, so
-any p always renders the same frame and reverse-scrolling just works.
-Keep it that way.
+The core invariant, on every page: every visual is a pure function of the
+eased scroll fraction p in [0, 1]. No accumulated state depends on scroll
+history, so any p always renders the same frame and reverse-scrolling just
+works. Keep it that way.
+
+Each scene is a separate Vite entry (`build.rollupOptions.input` in
+vite.config.js) with its own Three.js world, timeline, and stylesheet, so
+scenes never couple to each other. Only `src/scroll.js` is shared.
+
+### The mountain (index.html, src/)
 
 - `index.html` - fixed full-viewport canvas, an invisible 600vh
   `#scroll-space` spacer (native scrolling stays intact), content panels
   with `data-start`/`data-end` timeline ranges, and the `#bib` contact card.
 - `src/scroll.js` - scroll position to eased 0..1 timeline (exponential
-  smoothing in the render loop, not CSS).
+  smoothing in the render loop, not CSS). Shared by all scenes.
 - `src/world.js` - shared world math: SLOPE, run extents, `hillY`,
   `surfaceY`, `terrainNoise`, seeded RNG; `pathAt(p)` (sine carve path,
   amplitude tapers `(1 - 0.85p)` to stay in-frustum near the camera) and
@@ -113,12 +132,83 @@ an explicit opt-in button that boots the animated ride. Renderer creation
 retries without antialiasing before giving up; browsers with WebGL
 disabled (common in in-app browsers) keep the static document. When
 diagnosing "no animations" reports, these two branches are the suspects.
+The caravan mirrors both branches (`#play-tour` in src/caravan/main.js).
+
+### The caravan (projects.html, src/caravan/)
+
+A fixed, side-on camera watches an Arthurian army march right-to-left along
+a road at sunrise; the camera never moves (a site-wide rule now), so the
+motion comes from the column crossing the frame and any sense of "arrival"
+from the warm light, not from camera travel. The palette is a warm,
+near-monochrome silhouette: an amber sky, everything on the ground a dark
+warm brown rimmed by the low sun. The one gradient in the whole scene is
+the sky.
+
+- `projects.html` - same skeleton as index.html: fixed canvas, an
+  invisible `#scroll-space` spacer, and content panels. The intro panel is
+  a small "Projects" signpost; the six project cards are generated from
+  data (see panels.js), not hand-written into the HTML.
+- `src/caravan/world.js` - layout and math: the fixed-camera constants
+  (`CAM`, `CAM_FOV`, `CAM_LOOK`, pitched up ~FOV/6 so the horizon sits ~1/3
+  up the frame), `ROAD_Z` (the army's depth, set well back so it reads as a
+  distant host), `ARTHUR_Z` (a nearer track so Arthur leads larger),
+  `CAMELOT` and `SUN_DIR`, ground-height noise, seeded RNG, and the
+  procession constants: `TRAVEL` (how far the column shifts over the
+  scroll), `X_TRIG` (world X of the content trigger, ~25% in from the
+  right), and `PROJECT_CROSS` (the eased-p at which each banner crosses it).
+- `src/caravan/environment.js` - the static landscape, all flat colors: a
+  rolling ground plane with a flat road corridor, a flat dirt road, two
+  warm-brown ridge silhouettes, `buildCity` (a whole medieval skyline baked
+  to two merged meshes, bodies + roofs, vertex-colored), `createSun` (a
+  fog-exempt disc low by the city), and `createSky` (the gradient dome: a
+  shader on a BackSide sphere centered on the camera, amber horizon
+  deepening upward, warm glow toward the sun). `SKY_HORIZON` is exported
+  for the fog color.
+- `src/caravan/column.js` - the procession. The bulk is an INSTANCED crowd
+  (`makeCrowd`): one merged pike-soldier silhouette instanced ~180 times
+  (the row of pikes reads as a host) in one draw call. Featured units are
+  individual groups: cavalry (`makeHorse`), supply and banner carts
+  (`makeCart`), and `makeArthur` (mounted, gold crown + bright Excalibur +
+  cape, scaled up, on the nearer track). The whole column advances with the
+  scroll, `worldX(unit) = x0 - TRAVEL * p`, a pure function of p, so reverse
+  scroll rewinds it and each banner crosses `X_TRIG` at a deterministic p.
+  The gait (legs, wheels, body bob) is driven by distance travelled
+  (`worldX * STRIDE_K`), NOT elapsed time, so it freezes when the scroll is
+  held; only the flags flutter on time (wind). Banner-carts fly a flat,
+  unlit flag in each project's `flag` color so the cue stays vivid against
+  the silhouettes.
+- `src/caravan/projects.js` - the six real projects as data (title, blurb,
+  bullets, stack, links, tag, and a heraldic `flag` color). Single source
+  of truth for both the banner colors and the cards (the content preserved
+  from the scrapped hall).
+- `src/caravan/panels.js` - `buildProjectPanels()` generates the six
+  `.panel.project` cards into `#sections` from `projects.js`, each keyed to
+  its banner's crossing (`data-start = PROJECT_CROSS[i]`, `data-end` = the
+  next crossing). Cards are large, fill the open sky on the left, and hold
+  the full write-up (a media slot for photos/clips added later, blurb,
+  feature bullets, stack, links), with a color chip echoing the banner.
+- `src/caravan/sections.js` - panel opacity/slide from timeline ranges (a
+  local copy of the mountain's; scenes never couple).
+- `src/caravan/main.js` - renderer, the fixed camera (set once and on
+  resize), a warm dim hemisphere fill plus a low warm directional backlight
+  (rims the silhouettes and throws long shadows toward the camera), the
+  frame loop (subtle sunrise shift, `column.update(p, elapsed)`), and the
+  static-mode fallback (mirrors the mountain, `#play-tour`).
+
+Pace: march speed is the `#scroll-space` height (taller = slower per-scroll)
+and is decoupled from banner spacing (which is `TRAVEL`), so the
+scroll-space height is the single "how fast do they march" dial.
 
 ## Design rules (user-mandated)
 
-- White and icy blue only; palette lives in CSS vars in `src/styles.css`.
+- Palettes are per scene: the mountain is white and icy blue only
+  (`src/styles.css`); the caravan is a warm sunrise silhouette, an amber
+  sky over near-black warm-brown land and figures
+  (`src/caravan/styles.css`). Each scene keeps one restrained palette.
 - No gradient blurs, no glassmorphism, and no em dashes anywhere,
-  including site copy and this repo's docs.
+  including site copy and this repo's docs. A real sky gradient is fine
+  (it is not the frosted UI "gradient blur" the rule targets); gradients on
+  the land are not, they muddy the flat colors.
 - Flat colors, crisp 1px borders, flat-shaded low-poly geometry.
 
 ## Verifying changes
@@ -130,6 +220,9 @@ Chromium (`~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome`) with
 scroll to a fraction of max scroll, wait ~1.8s for the eased timeline to
 settle, and screenshot. Check 0%, section midpoints, ~95%, and 100%.
 Capture mid-motion (scroll then screenshot after ~300ms) to see spray.
+The same workflow covers the caravan at /projects.html: a project's card is
+up between its banner's crossing (`PROJECT_CROSS[i]`) and the next, so a
+midpoint between two consecutive crossings lands a card cleanly.
 
 ## Deployment
 

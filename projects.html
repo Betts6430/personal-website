@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Avery Bettesworth &middot; Projects</title>
+    <meta
+      name="description"
+      content="Projects by Avery Bettesworth. Scroll to break the day as a caravan rides out from Camelot at dawn; each banner brings up a project."
+    />
+    <meta name="theme-color" content="#243049" />
+    <meta property="og:title" content="Avery Bettesworth &middot; Projects" />
+    <meta
+      property="og:description"
+      content="A dawn march out of Camelot. Scroll to raise the sun; each passing banner brings up a project."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://betts6430.github.io/personal-website/projects.html" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23243049'/%3E%3Ccircle cx='23' cy='21' r='7' fill='%23ecab68'/%3E%3Crect x='5' y='8' width='6' height='20' fill='%231b2436'/%3E%3Cpath d='M5 8l3-4 3 4z' fill='%231b2436'/%3E%3Crect x='13' y='12' width='5' height='16' fill='%231b2436'/%3E%3Cpath d='M13 12l2.5-3 2.5 3z' fill='%231b2436'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/caravan/styles.css" />
+  </head>
+  <body>
+    <!-- Fixed full-viewport 3D scene; the page itself never visually scrolls. -->
+    <canvas id="scene" aria-hidden="true"></canvas>
+
+    <!-- Invisible spacer that gives the page real scrollable height. Scroll
+         position becomes the 0..1 timeline that breaks the day. -->
+    <div id="scroll-space" aria-hidden="true"></div>
+
+    <!-- Panels. Each owns a slice of the timeline via data-start/data-end.
+         Project panels (added with the marching column) sit in the open sky
+         on the left so they never cover Camelot on the right. -->
+    <main id="sections">
+      <!-- Shown only in the static fallback when rendering works: lets
+           reduced-motion visitors opt into the animated ride. -->
+      <button id="play-tour" type="button">&#9656; Ride out at dawn</button>
+
+      <section class="panel intro" data-start="-1" data-end="0.1">
+        <p class="kicker">Avery Bettesworth</p>
+        <h1>Projects</h1>
+        <p class="hint">Scroll to march through the work <span class="chev">&#9662;</span></p>
+        <p class="backlink"><a href="./">&#8617; Back to the mountain</a></p>
+      </section>
+    </main>
+
+    <script type="module" src="/src/caravan/main.js"></script>
+  </body>
+</html>

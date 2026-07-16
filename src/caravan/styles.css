@@ -1,0 +1,323 @@
+/* Caravan palette: warm sunrise amber, parchment, stone. Same site-wide
+   rules as the other scenes: flat colors, crisp 1px borders, no gradient
+   blurs, no glassmorphism, no em dashes. */
+:root {
+  --night: #241a10;
+  --parchment: #ece2cd;
+  --parchment-dim: #ddceac;
+  --ink: #241d15;
+  --gold: #c8892f;
+  --gold-deep: #9c621d;
+  --stone: #6b6257;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  /* Instant response; smoothing happens in the render loop so the scene
+     eases identically for wheel, keyboard, and scrollbar input. */
+  scroll-behavior: auto;
+}
+
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: Georgia, "Palatino Linotype", "Times New Roman", serif;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The scroll timeline: runway for the whole column to cross the frame. Tall
+   so the march reads slowly: the taller this is, the more page-scroll each
+   step of the column takes, which sets the pace without changing how far
+   apart the banners sit. */
+#scroll-space {
+  height: 1100vh;
+}
+
+/* --- Panels --------------------------------------------------------------- */
+/* Opacity and slide are driven per frame from the scroll timeline. Project
+   panels live in the open sky on the left so they never cover Camelot on the
+   right. */
+
+.panel {
+  position: fixed;
+  opacity: 0;
+  visibility: hidden;
+  max-width: 400px;
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: 24px 28px;
+  background: rgba(236, 226, 205, 0.95);
+  border: 1px solid var(--stone);
+  outline: 1px solid var(--parchment-dim);
+  outline-offset: -5px;
+}
+
+/* The intro is a small, clear signpost, not a title card: the visitor has
+   already seen the site title on the home page. */
+.panel.intro {
+  left: 50%;
+  top: 8vh;
+  text-align: center;
+  max-width: 360px;
+  padding: 18px 24px;
+  transform: translate(-50%, var(--slide, 0px));
+}
+
+.panel.intro h1 {
+  font-size: 2rem;
+}
+
+/* Project cards fill the open sky on the left: a wide, tall panel with a
+   margin from the top, left, and ground, and a clear gap before the city on
+   the right. */
+.panel.project {
+  left: 4vw;
+  top: 7vh;
+  bottom: 11vh;
+  width: 44vw;
+  max-width: 640px;
+  max-height: none;
+  transform: translateY(var(--slide, 0px));
+}
+
+.kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  margin-bottom: 10px;
+}
+
+.panel h1 {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.panel h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.panel .tagline {
+  font-size: 1.05rem;
+  color: var(--gold-deep);
+}
+
+.panel .blurb {
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+/* Media: photos and clips drop in here later; until then a labeled slot
+   holds the space at a 16:9 ratio. */
+.panel.project figure {
+  margin: 0 0 16px;
+}
+
+.panel.project img,
+.panel.project video {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--stone);
+}
+
+.media-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 165px;
+  border: 1px dashed var(--stone);
+  background: var(--parchment-dim);
+  padding: 12px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+
+.panel.project ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.panel.project li {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 7px;
+}
+
+.panel .stack {
+  margin-top: 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stone);
+}
+
+/* A small chip in the kicker echoing the banner color that cued this card. */
+.flagchip {
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  margin-right: 7px;
+  vertical-align: -1px;
+  border: 1px solid rgba(36, 29, 21, 0.35);
+}
+
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--stone);
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--gold-deep);
+  vertical-align: 2px;
+}
+
+.projlinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 12px;
+}
+
+.projlinks a {
+  font-size: 0.9rem;
+}
+
+.panel .hint {
+  margin-top: 22px;
+  font-size: 0.85rem;
+  color: var(--gold-deep);
+}
+
+.panel .backlink {
+  margin-top: 14px;
+  font-size: 0.85rem;
+}
+
+.chev {
+  display: inline-block;
+  animation: bob 1.6s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+.panel a {
+  color: var(--gold-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.panel a:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 700px) {
+  .panel {
+    max-width: none;
+    padding: 18px 20px;
+  }
+
+  .panel.project {
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 12px;
+    width: auto;
+    max-width: none;
+    max-height: 66vh;
+  }
+
+  .panel.intro {
+    width: calc(100% - 32px);
+  }
+
+  .panel h1 {
+    font-size: 2rem;
+  }
+}
+
+/* --- Static fallback ------------------------------------------------------ */
+/* Applied for reduced motion or when WebGL is unavailable: the timeline is
+   abandoned and the page becomes a plainly scrolling document. */
+
+body.static-mode {
+  background: var(--parchment);
+}
+
+body.static-mode #scroll-space {
+  display: none;
+}
+
+body.static-mode #sections {
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 42vh 16px 16px;
+}
+
+body.static-mode .panel {
+  position: static;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  max-width: none;
+  width: auto;
+  margin: 0 0 22px;
+}
+
+/* Opt-in control for the animated ride: hidden everywhere except the static
+   fallback with a working renderer (reduced-motion visitors). */
+#play-tour {
+  display: none;
+}
+
+body.static-mode.can-animate #play-tour {
+  display: block;
+  margin: 0 auto 22px;
+  padding: 11px 22px;
+  background: var(--parchment);
+  border: 1px solid var(--gold-deep);
+  color: var(--gold-deep);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#play-tour:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
